@@ -67,5 +67,42 @@ def simulate_generator(
     }
 
 
+def infer_duration(
+    lambda1: float,
+    lambda2: float,
+    branching_ratio: float,
+    N1_0: float,
+    milking_interval_s: float,
+    min_yield_atoms: float,
+    max_duration_s: float = 10 * 365.25 * 24 * 3600,
+) -> float | None:
+    """
+    Walk milking cycles until yield drops below min_yield_atoms.
+    Returns the time (s) of the first below-threshold event, or None if never reached.
+    """
+    max_iter = int(max_duration_s / milking_interval_s)
+    N1_seg = N1_0
+    N2_seg = 0.0
+    dl = lambda2 - lambda1
+
+    for i in range(max_iter):
+        exp1 = math.exp(-lambda1 * milking_interval_s)
+        exp2 = math.exp(-lambda2 * milking_interval_s)
+
+        if abs(dl) < 1e-15 * max(lambda1, lambda2, 1e-30):
+            N2_end = branching_ratio * lambda1 * N1_seg * milking_interval_s * exp1 + N2_seg * exp2
+        else:
+            N2_end = (branching_ratio * lambda1 * N1_seg / dl) * (exp1 - exp2) + N2_seg * exp2
+
+        t_event = (i + 1) * milking_interval_s
+        if N2_end < min_yield_atoms:
+            return t_event  # include this first below-threshold event as the endpoint
+
+        N1_seg *= exp1
+        N2_seg = 0.0
+
+    return None
+
+
 def activity_from_atoms(N: np.ndarray, decay_lambda: float) -> np.ndarray:
     return decay_lambda * N / 1e6  # → MBq

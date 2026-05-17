@@ -27,6 +27,7 @@ const parentResults   = document.getElementById('parent-results');
 const daughterSelect  = document.getElementById('daughter-select');
 const calcBtn         = document.getElementById('calculate-btn');
 const errorMsg        = document.getElementById('error-msg');
+const inferredInfo    = document.getElementById('inferred-info');
 const chartDiv        = document.getElementById('chart');
 const chartPlaceholder = document.getElementById('chart-placeholder');
 const tableContainer  = document.getElementById('table-container');
@@ -158,34 +159,46 @@ function onDaughterChange() {
 // ── Calculate ─────────────────────────────────────────────────────────────
 async function onCalculate() {
   clearError();
+  inferredInfo.classList.add('hidden');
   if (!selectedParent || !selectedDaughter) {
     showError('Please select a generator pair.'); return;
   }
   const initAct  = parseFloat(document.getElementById('initial-activity').value);
   const interval = parseFloat(document.getElementById('milking-interval').value);
-  const duration = parseFloat(document.getElementById('duration').value);
-  const minYield = parseFloat(document.getElementById('min-yield').value) || 0;
+  const durationRaw = document.getElementById('duration').value.trim();
+  const minYieldRaw = document.getElementById('min-yield').value.trim();
+  const duration = durationRaw !== '' ? parseFloat(durationRaw) : null;
+  const minYield = minYieldRaw !== '' ? parseFloat(minYieldRaw) : null;
 
   if (!initAct || initAct <= 0) { showError('Initial activity must be > 0.'); return; }
   if (!interval || interval <= 0) { showError('Milking interval must be > 0.'); return; }
-  if (!duration || duration <= interval) { showError('Duration must be greater than milking interval.'); return; }
+  if (duration === null && !minYield) {
+    showError('Provide duration, min yield threshold, or both.'); return;
+  }
 
   calcBtn.disabled = true;
   calcBtn.textContent = 'Calculating…';
 
-  const data = await API.calculate({
+  const body = {
     parent_symbol: selectedParent.symbol,
     daughter_symbol: selectedDaughter.symbol,
     initial_activity_MBq: initAct,
     milking_interval_h: interval,
-    duration_h: duration,
-    min_yield_MBq: minYield,
-  });
+  };
+  if (duration !== null) body.duration_h = duration;
+  if (minYield !== null) body.min_yield_MBq = minYield;
+
+  const data = await API.calculate(body);
 
   calcBtn.disabled = false;
   calcBtn.textContent = 'Calculate';
 
   if (data.error) { showError(data.error); return; }
+
+  if (data.inferred_duration_h !== null) {
+    inferredInfo.textContent = `Inferred duration: ${data.inferred_duration_h.toFixed(1)} h — yield drops below threshold at this point.`;
+    inferredInfo.classList.remove('hidden');
+  }
 
   renderChart(data);
   renderTable(data.milking_events, data.min_yield_MBq);

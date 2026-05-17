@@ -242,4 +242,14 @@ input:focus, select:focus {
 .below { color: #c0392b; font-weight: 600; }
 .no-threshold { color: #999; }
 
+.inferred-box {
+  margin-top: 8px;
+  padding: 7px 10px;
+  background: #eef6ee;
+  border: 1px solid #b2d9b2;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #2d6a2d;
+}
+
 .hidden { display: none !important; }

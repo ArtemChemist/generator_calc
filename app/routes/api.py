@@ -1,7 +1,7 @@
 import math
 from flask import Blueprint, jsonify, request
 from ..db import get_db
-from ..physics import simulate_generator, activity_from_atoms
+from ..physics import simulate_generator, activity_from_atoms, infer_duration
 
 bp = Blueprint('api', __name__)
 
@@ -66,19 +66,28 @@ def calculate():
     try:
         initial_activity_MBq = float(body['initial_activity_MBq'])
         milking_interval_h = float(body['milking_interval_h'])
-        duration_h = float(body['duration_h'])
-        min_yield_MBq = float(body.get('min_yield_MBq', 0))
     except (KeyError, TypeError, ValueError) as e:
         return jsonify({'error': f'Invalid parameter: {e}'}), 400
 
+    raw_duration = body.get('duration_h')
+    raw_min_yield = body.get('min_yield_MBq')
+    try:
+        duration_h = float(raw_duration) if raw_duration not in (None, '') else None
+        min_yield_MBq = float(raw_min_yield) if raw_min_yield not in (None, '') else None
+    except (TypeError, ValueError) as e:
+        return jsonify({'error': f'Invalid parameter: {e}'}), 400
+
+    if duration_h is None and not min_yield_MBq:
+        return jsonify({'error': 'Provide duration, min yield threshold, or both.'}), 400
     if initial_activity_MBq <= 0:
         return jsonify({'error': 'initial_activity_MBq must be > 0'}), 400
     if milking_interval_h <= 0:
         return jsonify({'error': 'milking_interval_h must be > 0'}), 400
-    if duration_h <= milking_interval_h:
-        return jsonify({'error': 'duration_h must be greater than milking_interval_h'}), 400
-    if duration_h > 8760:
-        return jsonify({'error': 'duration_h must be <= 8760 (1 year)'}), 400
+    if duration_h is not None:
+        if duration_h <= milking_interval_h:
+            return jsonify({'error': 'duration_h must be greater than milking_interval_h'}), 400
+        if duration_h > 8760:
+            return jsonify({'error': 'duration_h must be <= 8760 (1 year)'}), 400
 
     db = get_db()
     hl_parent = _half_life_row(parent_symbol, db)
@@ -100,6 +109,22 @@ def calculate():
     lambda2 = LN2 / hl_daughter if hl_daughter < 1e29 else 0.0
 
     N1_0 = (initial_activity_MBq * 1e6) / lambda1
+
+    inferred_duration_h = None
+    if duration_h is None:
+        min_yield_atoms = (min_yield_MBq * 1e6) / lambda2 if lambda2 > 0 else 0
+        duration_s = infer_duration(
+            lambda1=lambda1,
+            lambda2=lambda2,
+            branching_ratio=branching_ratio,
+            N1_0=N1_0,
+            milking_interval_s=milking_interval_h * 3600,
+            min_yield_atoms=min_yield_atoms,
+        )
+        if duration_s is None:
+            return jsonify({'error': 'Yield stays above threshold for >10 years; specify a duration instead.'}), 400
+        inferred_duration_h = round(duration_s / 3600, 4)
+        duration_h = inferred_duration_h
 
     result = simulate_generator(
         lambda1=lambda1,
@@ -127,7 +152,8 @@ def calculate():
         'parent_activity_MBq': parent_mbq,
         'daughter_activity_MBq': daughter_mbq,
         'milking_events': milking_events,
-        'min_yield_MBq': min_yield_MBq,
+        'min_yield_MBq': min_yield_MBq or 0,
+        'inferred_duration_h': inferred_duration_h,
         'metadata': {
             'parent_symbol': parent_symbol,
             'daughter_symbol': daughter_symbol,
