@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS generator_presets (
 );
 """
 
+# Corrections to ICRP-107 values that are known to be rounded or outdated.
+# Values are in seconds.
+HALF_LIFE_CORRECTIONS = {
+    'Ac-225': 9.919 * 86400,  # ICRP-107 uses 10.0 d; measured value is 9.919 d
+}
+
 PRESETS = [
     ('Ra-225 / Ac-225', 'Ra-225', 'Ac-225', 0),
     ('Mo-99 / Tc-99m',  'Mo-99',  'Tc-99m', 1),
@@ -86,6 +92,9 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA)
+    conn.execute('DELETE FROM decay_modes')
+    conn.execute('DELETE FROM generator_presets')
+    conn.execute('DELETE FROM isotopes')
 
     data = rd.DEFAULTDATA
     all_symbols = list(data.nuclide_dict.keys())
@@ -105,6 +114,10 @@ def main():
         'INSERT OR IGNORE INTO isotopes (symbol, name, half_life_s, atomic_number, mass_number) VALUES (?,?,?,?,?)',
         isotope_rows,
     )
+
+    for symbol, hl_s in HALF_LIFE_CORRECTIONS.items():
+        conn.execute('UPDATE isotopes SET half_life_s = ? WHERE symbol = ?', (hl_s, symbol))
+        print(f'  Corrected {symbol}: {hl_s/86400:.4f} d')
 
     decay_rows = []
     for sym in all_symbols:
