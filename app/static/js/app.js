@@ -33,13 +33,15 @@ const customMeta      = document.getElementById('custom-meta');
 const parentSearch    = document.getElementById('parent-search');
 const parentResults   = document.getElementById('parent-results');
 const daughterSelect  = document.getElementById('daughter-select');
-const calcBtn         = document.getElementById('calculate-btn');
-const errorMsg        = document.getElementById('error-msg');
-const inferredInfo    = document.getElementById('inferred-info');
-const chartDiv        = document.getElementById('chart');
-const chartPlaceholder = document.getElementById('chart-placeholder');
-const tableContainer  = document.getElementById('table-container');
-const tableBody       = document.querySelector('#milking-table tbody');
+const calcBtn             = document.getElementById('calculate-btn');
+const errorMsg            = document.getElementById('error-msg');
+const inferredInfo        = document.getElementById('inferred-info');
+const chartDiv            = document.getElementById('chart');
+const chartPlaceholder    = document.getElementById('chart-placeholder');
+const cumulativeDiv       = document.getElementById('cumulative-chart');
+const cumulativePlaceholder = document.getElementById('cumulative-placeholder');
+const tableContainer      = document.getElementById('table-container');
+const tableBody           = document.querySelector('#milking-table tbody');
 
 // ── Init ───────────────────────────────────────────────────────────────────
 async function initPage() {
@@ -52,6 +54,9 @@ async function initPage() {
   });
   if (presets.length) onPresetChange();
 
+  document.querySelectorAll('.tab-btn').forEach(b =>
+    b.addEventListener('click', () => switchTab(b.dataset.tab))
+  );
   document.querySelectorAll('input[name="mode"]').forEach(r =>
     r.addEventListener('change', onModeChange)
   );
@@ -82,6 +87,22 @@ function onModeChange() {
   }
 }
 
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tabId)
+  );
+  document.querySelectorAll('.tab-panel').forEach(p =>
+    p.classList.toggle('hidden', p.id !== `tab-${tabId}`)
+  );
+  if (tabId === 'events' && lastResult) {
+    renderCumulativeChart(lastResult.milking_events, lastResult.min_yield_MBq);
+  }
+  if (tabId === 'chart' && lastResult) {
+    Plotly.Plots.resize('chart');
+  }
+}
+
 // ── Unit toggle ────────────────────────────────────────────────────────────
 function onUnitChange() {
   currentUnit = document.querySelector('input[name="unit"]:checked').value;
@@ -89,6 +110,8 @@ function onUnitChange() {
   if (lastResult) {
     renderChart(lastResult);
     renderTable(lastResult.milking_events, lastResult.min_yield_MBq);
+    const eventsVisible = !document.getElementById('tab-events').classList.contains('hidden');
+    if (eventsVisible) renderCumulativeChart(lastResult.milking_events, lastResult.min_yield_MBq);
   }
 }
 
@@ -306,9 +329,11 @@ function renderChart(data) {
 // ── Table ──────────────────────────────────────────────────────────────────
 function renderTable(events, minYieldMBq) {
   tableBody.innerHTML = '';
-  const minYieldDisplay = fromMBq(minYieldMBq);
+  let runningMBq = 0;
   events.forEach(e => {
-    const yieldDisplay = fromMBq(e.yield_MBq);
+    runningMBq += e.yield_MBq;
+    const yieldDisplay      = fromMBq(e.yield_MBq).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const cumulativeDisplay = fromMBq(runningMBq).toLocaleString(undefined,  { maximumFractionDigits: 2 });
     const tr = document.createElement('tr');
     let vsCell;
     if (minYieldMBq > 0) {
@@ -320,12 +345,51 @@ function renderTable(events, minYieldMBq) {
     }
     tr.innerHTML = `
       <td>${e.time_h.toFixed(1)}</td>
-      <td>${yieldDisplay.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+      <td>${yieldDisplay}</td>
+      <td>${cumulativeDisplay}</td>
       ${vsCell}
     `;
     tableBody.appendChild(tr);
   });
   tableContainer.classList.remove('hidden');
+}
+
+// ── Cumulative chart ───────────────────────────────────────────────────────
+function renderCumulativeChart(events, minYieldMBq) {
+  if (!events.length) return;
+  cumulativePlaceholder.classList.add('hidden');
+  cumulativeDiv.classList.remove('hidden');
+
+  const ul = unitLabel();
+  const x = [0];
+  const y = [0];
+  let running = 0;
+  events.forEach(e => {
+    running += fromMBq(e.yield_MBq);
+    x.push(e.time_h);
+    y.push(running);
+  });
+
+  const traces = [{
+    x,
+    y,
+    mode: 'lines+markers',
+    line: { color: '#27ae60', width: 2, shape: 'hv' },
+    marker: { color: '#27ae60', size: 6 },
+    name: `Cumulative yield (${ul})`,
+    hovertemplate: `<b>%{x:.1f} h</b><br>%{y:.2f} ${ul}<extra></extra>`,
+  }];
+
+  const layout = {
+    margin: { t: 20, r: 40, b: 50, l: 80 },
+    xaxis: { title: 'Time (h)', gridcolor: '#eef0f4' },
+    yaxis: { title: `Cumulative yield (${ul})`, gridcolor: '#eef0f4' },
+    plot_bgcolor: '#fff',
+    paper_bgcolor: '#fff',
+    showlegend: false,
+  };
+
+  Plotly.newPlot('cumulative-chart', traces, layout, { responsive: true, displayModeBar: false });
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

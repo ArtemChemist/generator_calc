@@ -70,25 +70,40 @@
     </aside>
 
     <section id="results-panel">
-      <div id="chart-container">
-        <div id="chart-placeholder">
-          <p>Configure parameters and press <strong>Calculate</strong> to see results.</p>
-        </div>
-        <div id="chart" class="hidden"></div>
+      <div id="tab-bar">
+        <button class="tab-btn active" data-tab="chart">Decay Chart</button>
+        <button class="tab-btn" data-tab="events">Milking Events</button>
       </div>
 
-      <div id="table-container" class="hidden">
-        <h2>Milking events</h2>
-        <table id="milking-table">
-          <thead>
-            <tr>
-              <th>Time (h)</th>
-              <th>Yield (<span class="unit-lbl">MBq</span>)</th>
-              <th>vs Min Yield</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div id="tab-chart" class="tab-panel">
+        <div id="chart-container">
+          <div id="chart-placeholder">
+            <p>Configure parameters and press <strong>Calculate</strong> to see results.</p>
+          </div>
+          <div id="chart" class="hidden"></div>
+        </div>
+      </div>
+
+      <div id="tab-events" class="tab-panel hidden">
+        <div id="cumulative-container">
+          <div id="cumulative-placeholder">
+            <p>Run a calculation to see the cumulative harvest.</p>
+          </div>
+          <div id="cumulative-chart" class="hidden"></div>
+        </div>
+        <div id="table-container" class="hidden">
+          <table id="milking-table">
+            <thead>
+              <tr>
+                <th>Time (h)</th>
+                <th>Yield (<span class="unit-lbl">MBq</span>)</th>
+                <th>Cumulative (<span class="unit-lbl">MBq</span>)</th>
+                <th>vs Min Yield</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
