@@ -96,7 +96,7 @@ function switchTab(tabId) {
     p.classList.toggle('hidden', p.id !== `tab-${tabId}`)
   );
   if (tabId === 'events' && lastResult) {
-    renderCumulativeChart(lastResult.milking_events, lastResult.min_yield_MBq);
+    renderCumulativeChart(lastResult.milking_events, lastResult._minYieldDisplay, lastResult._genYield);
   }
   if (tabId === 'chart' && lastResult) {
     Plotly.Plots.resize('chart');
@@ -109,9 +109,9 @@ function onUnitChange() {
   document.querySelectorAll('.unit-lbl').forEach(el => el.textContent = currentUnit);
   if (lastResult) {
     renderChart(lastResult);
-    renderTable(lastResult.milking_events, lastResult.min_yield_MBq);
+    renderTable(lastResult.milking_events, lastResult._minYieldDisplay, lastResult._genYield);
     const eventsVisible = !document.getElementById('tab-events').classList.contains('hidden');
-    if (eventsVisible) renderCumulativeChart(lastResult.milking_events, lastResult.min_yield_MBq);
+    if (eventsVisible) renderCumulativeChart(lastResult.milking_events, lastResult._minYieldDisplay, lastResult._genYield);
   }
 }
 
@@ -213,9 +213,12 @@ async function onCalculate() {
   const minYieldRaw = document.getElementById('min-yield').value.trim();
   const duration = durationRaw !== '' ? parseFloat(durationRaw) : null;
   const minYield = minYieldRaw !== '' ? parseFloat(minYieldRaw) : null;
+  const genYieldPct = parseFloat(document.getElementById('gen-yield').value) || 100;
+  const genYield = Math.min(Math.max(genYieldPct, 0), 100) / 100;
 
   if (!initAct || initAct <= 0) { showError('Initial activity must be > 0.'); return; }
   if (!interval || interval <= 0) { showError('Milking interval must be > 0.'); return; }
+  if (genYield <= 0) { showError('Generator yield must be > 0%.'); return; }
   if (duration === null && !minYield) {
     showError('Provide duration, min yield threshold, or both.'); return;
   }
@@ -230,7 +233,8 @@ async function onCalculate() {
     milking_interval_h: interval,
   };
   if (duration !== null) body.duration_h = duration;
-  if (minYield !== null) body.min_yield_MBq = toMBq(minYield);
+  // Send threshold as theoretical equivalent so backend infers duration on practical yield
+  if (minYield !== null) body.min_yield_MBq = toMBq(minYield) / genYield;
 
   const data = await API.calculate(body);
 
@@ -240,6 +244,8 @@ async function onCalculate() {
   if (data.error) { showError(data.error); return; }
 
   lastResult = data;
+  lastResult._genYield = genYield;
+  lastResult._minYieldDisplay = minYield ? toMBq(minYield) : 0; // practical threshold in MBq
 
   if (data.inferred_duration_h !== null) {
     inferredInfo.textContent = `Inferred duration: ${data.inferred_duration_h.toFixed(1)} h — yield drops below threshold at this point.`;
@@ -247,7 +253,7 @@ async function onCalculate() {
   }
 
   renderChart(data);
-  renderTable(data.milking_events, data.min_yield_MBq);
+  renderTable(data.milking_events, data._minYieldDisplay, genYield);
 }
 
 // ── Chart ─────────────────────────────────────────────────────────────────
@@ -327,17 +333,18 @@ function renderChart(data) {
 }
 
 // ── Table ──────────────────────────────────────────────────────────────────
-function renderTable(events, minYieldMBq) {
+function renderTable(events, minYieldMBq, genYield = 1) {
   tableBody.innerHTML = '';
   let runningMBq = 0;
   events.forEach(e => {
-    runningMBq += e.yield_MBq;
-    const yieldDisplay      = fromMBq(e.yield_MBq).toLocaleString(undefined, { maximumFractionDigits: 2 });
-    const cumulativeDisplay = fromMBq(runningMBq).toLocaleString(undefined,  { maximumFractionDigits: 2 });
+    const practicalMBq = e.yield_MBq * genYield;
+    runningMBq += practicalMBq;
+    const yieldDisplay      = fromMBq(practicalMBq).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const cumulativeDisplay = fromMBq(runningMBq).toLocaleString(undefined,   { maximumFractionDigits: 2 });
     const tr = document.createElement('tr');
     let vsCell;
     if (minYieldMBq > 0) {
-      vsCell = e.yield_MBq >= minYieldMBq
+      vsCell = practicalMBq >= minYieldMBq
         ? '<td class="above">✓ Above</td>'
         : '<td class="below">✗ Below</td>';
     } else {
@@ -355,7 +362,7 @@ function renderTable(events, minYieldMBq) {
 }
 
 // ── Cumulative chart ───────────────────────────────────────────────────────
-function renderCumulativeChart(events, minYieldMBq) {
+function renderCumulativeChart(events, minYieldMBq, genYield = 1) {
   if (!events.length) return;
   cumulativePlaceholder.classList.add('hidden');
   cumulativeDiv.classList.remove('hidden');
@@ -365,7 +372,7 @@ function renderCumulativeChart(events, minYieldMBq) {
   const y = [0];
   let running = 0;
   events.forEach(e => {
-    running += fromMBq(e.yield_MBq);
+    running += fromMBq(e.yield_MBq * genYield);
     x.push(e.time_h);
     y.push(running);
   });
