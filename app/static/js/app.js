@@ -15,6 +15,14 @@ const API = {
 let selectedParent = null;    // { symbol, half_life_s }
 let selectedDaughter = null;  // { symbol, half_life_s, branching_ratio }
 let searchDebounce = null;
+let currentUnit = 'MBq';
+let lastResult = null;
+
+const MBQ_PER_MCI = 37;
+
+function toMBq(v)   { return currentUnit === 'mCi' ? v * MBQ_PER_MCI : v; }
+function fromMBq(v) { return currentUnit === 'mCi' ? v / MBQ_PER_MCI : v; }
+function unitLabel() { return currentUnit; }
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const presetSelect    = document.getElementById('preset-select');
@@ -47,6 +55,9 @@ async function initPage() {
   document.querySelectorAll('input[name="mode"]').forEach(r =>
     r.addEventListener('change', onModeChange)
   );
+  document.querySelectorAll('input[name="unit"]').forEach(r =>
+    r.addEventListener('change', onUnitChange)
+  );
   presetSelect.addEventListener('change', onPresetChange);
   parentSearch.addEventListener('input', onParentInput);
   daughterSelect.addEventListener('change', onDaughterChange);
@@ -68,6 +79,16 @@ function onModeChange() {
     customSection.classList.remove('hidden');
     selectedParent = null;
     selectedDaughter = null;
+  }
+}
+
+// ── Unit toggle ────────────────────────────────────────────────────────────
+function onUnitChange() {
+  currentUnit = document.querySelector('input[name="unit"]:checked').value;
+  document.querySelectorAll('.unit-lbl').forEach(el => el.textContent = currentUnit);
+  if (lastResult) {
+    renderChart(lastResult);
+    renderTable(lastResult.milking_events, lastResult.min_yield_MBq);
   }
 }
 
@@ -182,11 +203,11 @@ async function onCalculate() {
   const body = {
     parent_symbol: selectedParent.symbol,
     daughter_symbol: selectedDaughter.symbol,
-    initial_activity_MBq: initAct,
+    initial_activity_MBq: toMBq(initAct),
     milking_interval_h: interval,
   };
   if (duration !== null) body.duration_h = duration;
-  if (minYield !== null) body.min_yield_MBq = minYield;
+  if (minYield !== null) body.min_yield_MBq = toMBq(minYield);
 
   const data = await API.calculate(body);
 
@@ -194,6 +215,8 @@ async function onCalculate() {
   calcBtn.textContent = 'Calculate';
 
   if (data.error) { showError(data.error); return; }
+
+  lastResult = data;
 
   if (data.inferred_duration_h !== null) {
     inferredInfo.textContent = `Inferred duration: ${data.inferred_duration_h.toFixed(1)} h — yield drops below threshold at this point.`;
@@ -223,22 +246,26 @@ function renderChart(data) {
     }
   });
 
+  const ul = unitLabel();
+  const parentY = data.parent_activity_MBq.map(fromMBq);
+  const daughterY = aDaughter.map(fromMBq);
+
   const traces = [
     {
       x: data.time_points_h,
-      y: data.parent_activity_MBq,
+      y: parentY,
       name: `${data.metadata.parent_symbol} (parent)`,
       mode: 'lines',
       line: { color: '#2a5cbf', width: 2 },
-      hovertemplate: '<b>%{x:.2f} h</b><br>%{y:.1f} MBq<extra>' + data.metadata.parent_symbol + '</extra>',
+      hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${data.metadata.parent_symbol}</extra>`,
     },
     {
       x: tDaughter,
-      y: aDaughter,
+      y: daughterY,
       name: `${data.metadata.daughter_symbol} (daughter)`,
       mode: 'lines',
       line: { color: '#e67e22', width: 2 },
-      hovertemplate: '<b>%{x:.2f} h</b><br>%{y:.1f} MBq<extra>' + data.metadata.daughter_symbol + '</extra>',
+      hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${data.metadata.daughter_symbol}</extra>`,
     },
   ];
 
@@ -249,9 +276,10 @@ function renderChart(data) {
   }));
 
   if (data.min_yield_MBq > 0) {
+    const thresholdVal = fromMBq(data.min_yield_MBq);
     traces.push({
       x: [data.time_points_h[0], data.time_points_h[data.time_points_h.length - 1]],
-      y: [data.min_yield_MBq, data.min_yield_MBq],
+      y: [thresholdVal, thresholdVal],
       name: 'Min yield threshold',
       mode: 'lines',
       line: { color: '#c0392b', width: 1.5, dash: 'dash' },
@@ -263,7 +291,7 @@ function renderChart(data) {
     margin: { t: 20, r: 40, b: 50, l: 80 },
     xaxis: { title: 'Time (h)', gridcolor: '#eef0f4' },
     yaxis: {
-      title: 'Activity (MBq)',
+      title: `Activity (${ul})`,
       gridcolor: '#eef0f4',
     },
     legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.8)', bordercolor: '#dde1e9', borderwidth: 1 },
@@ -276,13 +304,15 @@ function renderChart(data) {
 }
 
 // ── Table ──────────────────────────────────────────────────────────────────
-function renderTable(events, minYield) {
+function renderTable(events, minYieldMBq) {
   tableBody.innerHTML = '';
+  const minYieldDisplay = fromMBq(minYieldMBq);
   events.forEach(e => {
+    const yieldDisplay = fromMBq(e.yield_MBq);
     const tr = document.createElement('tr');
     let vsCell;
-    if (minYield > 0) {
-      vsCell = e.yield_MBq >= minYield
+    if (minYieldMBq > 0) {
+      vsCell = e.yield_MBq >= minYieldMBq
         ? '<td class="above">✓ Above</td>'
         : '<td class="below">✗ Below</td>';
     } else {
@@ -290,7 +320,7 @@ function renderTable(events, minYield) {
     }
     tr.innerHTML = `
       <td>${e.time_h.toFixed(1)}</td>
-      <td>${e.yield_MBq.toLocaleString(undefined, {maximumFractionDigits: 1})}</td>
+      <td>${yieldDisplay.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
       ${vsCell}
     `;
     tableBody.appendChild(tr);

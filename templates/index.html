@@ -44,7 +44,13 @@
       <fieldset>
         <legend>Simulation parameters</legend>
 
-        <label for="initial-activity">Initial parent activity (MBq)</label>
+        <div class="radio-group unit-group">
+          <span class="radio-label">Units:</span>
+          <label><input type="radio" name="unit" value="MBq" checked> MBq</label>
+          <label><input type="radio" name="unit" value="mCi"> mCi</label>
+        </div>
+
+        <label for="initial-activity">Initial parent activity (<span class="unit-lbl">MBq</span>)</label>
         <input type="number" id="initial-activity" min="0.001" step="any" placeholder="e.g. 37000">
 
         <label for="milking-interval">Milking interval (hours)</label>
@@ -53,7 +59,7 @@
         <label for="duration">Duration (hours) <span class="hint">optional if min yield set</span></label>
         <input type="number" id="duration" min="1" step="any" placeholder="e.g. 168">
 
-        <label for="min-yield">Min yield threshold (MBq) <span class="hint">optional if duration set</span></label>
+        <label for="min-yield">Min yield threshold (<span class="unit-lbl">MBq</span>) <span class="hint">optional if duration set</span></label>
         <input type="number" id="min-yield" min="0" step="any" placeholder="e.g. 1000">
 
         <div id="inferred-info" class="inferred-box hidden"></div>
@@ -77,7 +83,7 @@
           <thead>
             <tr>
               <th>Time (h)</th>
-              <th>Yield (MBq)</th>
+              <th>Yield (<span class="unit-lbl">MBq</span>)</th>
               <th>vs Min Yield</th>
             </tr>
           </thead>

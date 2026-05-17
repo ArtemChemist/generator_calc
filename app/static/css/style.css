@@ -97,6 +97,15 @@ input:focus, select:focus {
   margin-top: 8px;
 }
 
+.unit-group { margin-top: 0; margin-bottom: 4px; }
+
+.radio-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #444;
+  align-self: center;
+}
+
 .radio-group label {
   display: flex;
   align-items: center;
