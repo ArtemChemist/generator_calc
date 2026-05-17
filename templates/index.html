@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Isotope Generator Calculator</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Isotope Generator Calculator</h1>
+  </header>
+
+  <main>
+    <aside id="inputs-panel">
+
+      <fieldset>
+        <legend>Generator pair</legend>
+        <div class="radio-group">
+          <label><input type="radio" name="mode" value="preset" checked> Preset</label>
+          <label><input type="radio" name="mode" value="custom"> Custom</label>
+        </div>
+
+        <div id="preset-section">
+          <label for="preset-select">Generator</label>
+          <select id="preset-select"></select>
+          <div id="preset-meta" class="meta-box hidden"></div>
+        </div>
+
+        <div id="custom-section" class="hidden">
+          <label for="parent-search">Parent isotope</label>
+          <input type="text" id="parent-search" placeholder="e.g. Ra-225" autocomplete="off">
+          <ul id="parent-results" class="dropdown hidden"></ul>
+
+          <label for="daughter-select">Daughter isotope</label>
+          <select id="daughter-select" disabled>
+            <option value="">— select parent first —</option>
+          </select>
+          <div id="custom-meta" class="meta-box hidden"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Simulation parameters</legend>
+
+        <label for="initial-activity">Initial parent activity (MBq)</label>
+        <input type="number" id="initial-activity" min="0.001" step="any" placeholder="e.g. 37000">
+
+        <label for="milking-interval">Milking interval (hours)</label>
+        <input type="number" id="milking-interval" min="0.1" step="any" placeholder="e.g. 24">
+
+        <label for="duration">Simulation duration (hours)</label>
+        <input type="number" id="duration" min="1" step="any" placeholder="e.g. 168">
+
+        <label for="min-yield">Min yield threshold (MBq) <span class="hint">optional</span></label>
+        <input type="number" id="min-yield" min="0" step="any" placeholder="e.g. 1000">
+      </fieldset>
+
+      <button id="calculate-btn">Calculate</button>
+      <div id="error-msg" class="error hidden"></div>
+    </aside>
+
+    <section id="results-panel">
+      <div id="chart-container">
+        <div id="chart-placeholder">
+          <p>Configure parameters and press <strong>Calculate</strong> to see results.</p>
+        </div>
+        <div id="chart" class="hidden"></div>
+      </div>
+
+      <div id="table-container" class="hidden">
+        <h2>Milking events</h2>
+        <table id="milking-table">
+          <thead>
+            <tr>
+              <th>Time (h)</th>
+              <th>Yield (MBq)</th>
+              <th>vs Min Yield</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
