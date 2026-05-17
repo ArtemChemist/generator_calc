@@ -342,19 +342,10 @@ function renderTable(events, minYieldMBq, genYield = 1) {
     const yieldDisplay      = fromMBq(practicalMBq).toLocaleString(undefined, { maximumFractionDigits: 2 });
     const cumulativeDisplay = fromMBq(runningMBq).toLocaleString(undefined,   { maximumFractionDigits: 2 });
     const tr = document.createElement('tr');
-    let vsCell;
-    if (minYieldMBq > 0) {
-      vsCell = practicalMBq >= minYieldMBq
-        ? '<td class="above">✓ Above</td>'
-        : '<td class="below">✗ Below</td>';
-    } else {
-      vsCell = '<td class="no-threshold">—</td>';
-    }
     tr.innerHTML = `
       <td>${e.time_h.toFixed(1)}</td>
       <td>${yieldDisplay}</td>
       <td>${cumulativeDisplay}</td>
-      ${vsCell}
     `;
     tableBody.appendChild(tr);
   });
@@ -378,11 +369,10 @@ function renderCumulativeChart(events, minYieldMBq, genYield = 1) {
   });
 
   const traces = [{
-    x,
-    y,
-    mode: 'lines+markers',
-    line: { color: '#27ae60', width: 2, shape: 'hv' },
-    marker: { color: '#27ae60', size: 6 },
+    x: x.slice(1),  // drop the leading 0 — bars start at first milking event
+    y: y.slice(1),
+    type: 'bar',
+    marker: { color: '#27ae60', opacity: 0.85 },
     name: `Cumulative yield (${ul})`,
     hovertemplate: `<b>%{x:.1f} h</b><br>%{y:.2f} ${ul}<extra></extra>`,
   }];
