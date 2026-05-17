@@ -230,7 +230,6 @@ function renderChart(data) {
       name: `${data.metadata.parent_symbol} (parent)`,
       mode: 'lines',
       line: { color: '#2a5cbf', width: 2 },
-      yaxis: 'y1',
       hovertemplate: '<b>%{x:.2f} h</b><br>%{y:.1f} MBq<extra>' + data.metadata.parent_symbol + '</extra>',
     },
     {
@@ -239,7 +238,6 @@ function renderChart(data) {
       name: `${data.metadata.daughter_symbol} (daughter)`,
       mode: 'lines',
       line: { color: '#e67e22', width: 2 },
-      yaxis: 'y2',
       hovertemplate: '<b>%{x:.2f} h</b><br>%{y:.1f} MBq<extra>' + data.metadata.daughter_symbol + '</extra>',
     },
   ];
@@ -257,27 +255,16 @@ function renderChart(data) {
       name: 'Min yield threshold',
       mode: 'lines',
       line: { color: '#c0392b', width: 1.5, dash: 'dash' },
-      yaxis: 'y2',
       hoverinfo: 'skip',
     });
   }
 
   const layout = {
-    margin: { t: 20, r: 80, b: 50, l: 80 },
+    margin: { t: 20, r: 40, b: 50, l: 80 },
     xaxis: { title: 'Time (h)', gridcolor: '#eef0f4' },
     yaxis: {
-      title: `${data.metadata.parent_symbol} activity (MBq)`,
-      titlefont: { color: '#2a5cbf' },
-      tickfont: { color: '#2a5cbf' },
+      title: 'Activity (MBq)',
       gridcolor: '#eef0f4',
-    },
-    yaxis2: {
-      title: `${data.metadata.daughter_symbol} activity (MBq)`,
-      titlefont: { color: '#e67e22' },
-      tickfont: { color: '#e67e22' },
-      overlaying: 'y',
-      side: 'right',
-      gridcolor: 'transparent',
     },
     legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.8)', bordercolor: '#dde1e9', borderwidth: 1 },
     plot_bgcolor: '#fff',
