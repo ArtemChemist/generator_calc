@@ -10,7 +10,7 @@ def simulate_generator(
     N1_0: float,
     milking_interval_s: float,
     duration_s: float,
-    n_points_per_interval: int = 200,
+    n_points_per_interval: int = 50,
 ) -> dict:
     """
     Analytic Bateman simulation of a parent→daughter generator with fixed-interval milking.

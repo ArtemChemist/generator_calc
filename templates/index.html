@@ -54,14 +54,14 @@
         <label for="initial-activity">Initial parent activity (<span class="unit-lbl">MBq</span>)</label>
         <input type="number" id="initial-activity" min="0.001" step="any" placeholder="e.g. 37000">
 
-        <label for="milking-interval">Milking interval (hours)</label>
-        <input type="number" id="milking-interval" min="0.1" step="any" placeholder="e.g. 24">
+        <label for="milking-interval">Milking interval (<span id="interval-unit-lbl">h</span>)</label>
+        <input type="number" id="milking-interval" min="0.001" step="any" placeholder="e.g. 24">
 
         <label for="gen-yield">Generator yield (%)</label>
         <input type="number" id="gen-yield" min="1" max="100" step="any" value="100" placeholder="e.g. 80">
 
-        <label for="duration">Duration (hours) <span class="hint">optional if min yield set</span></label>
-        <input type="number" id="duration" min="1" step="any" placeholder="e.g. 168">
+        <label for="duration">Duration (<span id="duration-unit-lbl">h</span>) <span class="hint">optional if min yield set</span></label>
+        <input type="number" id="duration" min="0.001" step="any" placeholder="e.g. 168">
 
         <label for="min-yield">Min yield threshold (<span class="unit-lbl">MBq</span>) <span class="hint">optional if duration set</span></label>
         <input type="number" id="min-yield" min="0" step="any" placeholder="e.g. 1000">
@@ -99,7 +99,7 @@
           <table id="milking-table">
             <thead>
               <tr>
-                <th>Time (h)</th>
+                <th id="time-col-header">Time (h)</th>
                 <th>Yield (<span class="unit-lbl">MBq</span>)</th>
                 <th>Cumulative (<span class="unit-lbl">MBq</span>)</th>
               </tr>

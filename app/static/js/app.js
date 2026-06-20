@@ -18,7 +18,58 @@ let selectedIntermediates = [];   // [{ symbol, half_life_s }, ...]
 let chainSelections = [];         // parallel to chain-step divs; each is null or { symbol, half_life_s }
 let searchDebounce = null;
 let currentUnit = 'MBq';
+let currentTimeUnit = { label: 'h', secs: 3600 };
 let lastResult = null;
+
+// ── Time-unit helpers ──────────────────────────────────────────────────────
+const TIME_UNITS = [
+  { label: 's',         secs: 1 },
+  { label: 'min',       secs: 60 },
+  { label: 'h',         secs: 3600 },
+  { label: 'd',         secs: 86400 },
+  { label: 'y',         secs: 365.25 * 86400 },
+  { label: 'decades',   secs: 10 * 365.25 * 86400 },
+  { label: 'centuries', secs: 100 * 365.25 * 86400 },
+];
+
+// Pick the unit where the half-life is expressed in 1–99 (single or double digits)
+function pickTimeUnit(halfLifeS) {
+  for (const u of TIME_UNITS) {
+    const hl = halfLifeS / u.secs;
+    if (hl >= 1 && hl < 100) return u;
+  }
+  return TIME_UNITS[TIME_UNITS.length - 1];
+}
+
+function hToUnit(hours, u) { return hours * 3600 / u.secs; }
+
+function getDaughterHalfLifeS(data) {
+  if (data.metadata.chain_half_lives_h) {
+    const hls = data.metadata.chain_half_lives_h;
+    return hls[hls.length - 1] * 3600;
+  }
+  return (data.metadata.daughter_half_life_h || 1) * 3600;
+}
+
+function updateInputTimeUnit(halfLifeS) {
+  const prev = currentTimeUnit;
+  const next = pickTimeUnit(halfLifeS);
+  if (prev.secs === next.secs) return;
+
+  // Convert any already-entered values to the new unit
+  ['milking-interval', 'duration'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.value) {
+      const hours = parseFloat(el.value) * prev.secs / 3600;
+      const converted = hours * 3600 / next.secs;
+      el.value = parseFloat(converted.toPrecision(4));
+    }
+  });
+
+  currentTimeUnit = next;
+  document.getElementById('interval-unit-lbl').textContent = next.label;
+  document.getElementById('duration-unit-lbl').textContent = next.label;
+}
 
 const MBQ_PER_MCI = 37;
 
@@ -143,6 +194,7 @@ function onPresetChange() {
   }
   presetMeta.innerHTML = metaHtml;
   presetMeta.classList.remove('hidden');
+  updateInputTimeUnit(p.daughter_half_life_s);
 }
 
 // ── Custom parent search ───────────────────────────────────────────────────
@@ -274,6 +326,7 @@ function updateChainState() {
   } else {
     selectedDaughter = valid[valid.length - 1];
     selectedIntermediates = valid.slice(0, -1);
+    if (selectedDaughter.half_life_s) updateInputTimeUnit(selectedDaughter.half_life_s);
   }
   // Show "Add step" only when the last step has a valid selection
   const lastValid = chainSelections.length > 0 && chainSelections[chainSelections.length - 1] != null;
@@ -309,18 +362,23 @@ async function onCalculate() {
     showError('Please select a generator pair.'); return;
   }
   const initAct  = parseFloat(document.getElementById('initial-activity').value);
-  const interval = parseFloat(document.getElementById('milking-interval').value);
+  const intervalRaw = parseFloat(document.getElementById('milking-interval').value);
   const durationRaw = document.getElementById('duration').value.trim();
   const minYieldRaw = document.getElementById('min-yield').value.trim();
-  const duration = durationRaw !== '' ? parseFloat(durationRaw) : null;
+  const durationParsed = durationRaw !== '' ? parseFloat(durationRaw) : null;
   const minYield = minYieldRaw !== '' ? parseFloat(minYieldRaw) : null;
   const genYieldPct = parseFloat(document.getElementById('gen-yield').value) || 100;
   const genYield = Math.min(Math.max(genYieldPct, 0), 100) / 100;
 
+  // Convert user inputs from currentTimeUnit to hours for the API
+  const tu = currentTimeUnit;
+  const interval_h = intervalRaw * tu.secs / 3600;
+  const duration_h = durationParsed !== null ? durationParsed * tu.secs / 3600 : null;
+
   if (!initAct || initAct <= 0) { showError('Initial activity must be > 0.'); return; }
-  if (!interval || interval <= 0) { showError('Milking interval must be > 0.'); return; }
+  if (!intervalRaw || intervalRaw <= 0) { showError(`Milking interval must be > 0 ${tu.label}.`); return; }
   if (genYield <= 0) { showError('Generator yield must be > 0%.'); return; }
-  if (duration === null && !minYield) {
+  if (duration_h === null && !minYield) {
     showError('Provide duration, min yield threshold, or both.'); return;
   }
 
@@ -332,9 +390,9 @@ async function onCalculate() {
     daughter_symbol: selectedDaughter.symbol,
     intermediate_symbols: selectedIntermediates.map(m => m.symbol),
     initial_activity_MBq: toMBq(initAct),
-    milking_interval_h: interval,
+    milking_interval_h: interval_h,
   };
-  if (duration !== null) body.duration_h = duration;
+  if (duration_h !== null) body.duration_h = duration_h;
   // Send threshold as theoretical equivalent so backend infers duration on practical yield
   if (minYield !== null) body.min_yield_MBq = toMBq(minYield) / genYield;
 
@@ -349,8 +407,14 @@ async function onCalculate() {
   lastResult._genYield = genYield;
   lastResult._minYieldDisplay = minYield ? toMBq(minYield) : 0; // practical threshold in MBq
 
+  // Confirm time unit from API response (should match selection-time unit)
+  currentTimeUnit = pickTimeUnit(getDaughterHalfLifeS(data));
+  document.getElementById('interval-unit-lbl').textContent = currentTimeUnit.label;
+  document.getElementById('duration-unit-lbl').textContent = currentTimeUnit.label;
+
   if (data.inferred_duration_h !== null) {
-    inferredInfo.textContent = `Inferred duration: ${data.inferred_duration_h.toFixed(1)} h — yield drops below threshold at this point.`;
+    const t = hToUnit(data.inferred_duration_h, currentTimeUnit);
+    inferredInfo.textContent = `Inferred duration: ${t.toFixed(2)} ${currentTimeUnit.label} — yield drops below threshold at this point.`;
     inferredInfo.classList.remove('hidden');
   }
 
@@ -363,19 +427,25 @@ function renderChart(data) {
   chartPlaceholder.classList.add('hidden');
   chartDiv.classList.remove('hidden');
 
+  const tu = currentTimeUnit;
+  const tlabel = tu.label;
+
   // Build daughter trace with explicit drops to 0 at milking times
   const tDaughter = [];
   const aDaughter = [];
-  const milkTimes = new Set(data.milking_events.map(e => e.time_h));
+  const milkTimesConverted = new Set(data.milking_events.map(e => hToUnit(e.time_h, tu)));
 
-  data.time_points_h.forEach((t, i) => {
+  data.time_points_h.forEach((h, i) => {
+    const t = hToUnit(h, tu);
     tDaughter.push(t);
     aDaughter.push(data.daughter_activity_MBq[i]);
-    if (milkTimes.has(t) && i < data.time_points_h.length - 1) {
+    if (milkTimesConverted.has(t) && i < data.time_points_h.length - 1) {
       tDaughter.push(t);
       aDaughter.push(0);
     }
   });
+
+  const timeArr = data.time_points_h.map(h => hToUnit(h, tu));
 
   const ul = unitLabel();
   const parentY = data.parent_activity_MBq.map(fromMBq);
@@ -386,12 +456,12 @@ function renderChart(data) {
 
   const traces = [
     {
-      x: data.time_points_h,
+      x: timeArr,
       y: parentY,
       name: `${chainSymbols[0]} (parent)`,
       mode: 'lines',
       line: { color: '#2a5cbf', width: 2 },
-      hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${chainSymbols[0]}</extra>`,
+      hovertemplate: `<b>%{x:.2f} ${tlabel}</b><br>%{y:.2f} ${ul}<extra>${chainSymbols[0]}</extra>`,
     },
   ];
 
@@ -400,12 +470,12 @@ function renderChart(data) {
     data.intermediate_activities_MBq.forEach((actArr, i) => {
       const sym = chainSymbols[1 + i] || `Intermediate ${i + 1}`;
       traces.push({
-        x: data.time_points_h,
+        x: timeArr,
         y: actArr.map(fromMBq),
         name: `${sym} (intermediate)`,
         mode: 'lines',
         line: { color: intermediateColors[i % intermediateColors.length], width: 2 },
-        hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${sym}</extra>`,
+        hovertemplate: `<b>%{x:.2f} ${tlabel}</b><br>%{y:.2f} ${ul}<extra>${sym}</extra>`,
       });
     });
   }
@@ -416,19 +486,19 @@ function renderChart(data) {
     name: `${chainSymbols[chainSymbols.length - 1]} (daughter)`,
     mode: 'lines',
     line: { color: '#e67e22', width: 2 },
-    hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${chainSymbols[chainSymbols.length - 1]}</extra>`,
+    hovertemplate: `<b>%{x:.2f} ${tlabel}</b><br>%{y:.2f} ${ul}<extra>${chainSymbols[chainSymbols.length - 1]}</extra>`,
   });
 
   const shapes = data.milking_events.map(e => ({
     type: 'line', xref: 'x', yref: 'paper',
-    x0: e.time_h, x1: e.time_h, y0: 0, y1: 1,
+    x0: hToUnit(e.time_h, tu), x1: hToUnit(e.time_h, tu), y0: 0, y1: 1,
     line: { color: '#aab0c0', width: 1, dash: 'dot' },
   }));
 
   if (data.min_yield_MBq > 0) {
     const thresholdVal = fromMBq(data.min_yield_MBq);
     traces.push({
-      x: [data.time_points_h[0], data.time_points_h[data.time_points_h.length - 1]],
+      x: [timeArr[0], timeArr[timeArr.length - 1]],
       y: [thresholdVal, thresholdVal],
       name: 'Min yield threshold',
       mode: 'lines',
@@ -439,7 +509,7 @@ function renderChart(data) {
 
   const layout = {
     margin: { t: 20, r: 40, b: 50, l: 80 },
-    xaxis: { title: 'Time (h)', gridcolor: '#eef0f4' },
+    xaxis: { title: `Time (${tlabel})`, gridcolor: '#eef0f4' },
     yaxis: {
       title: `Activity (${ul})`,
       gridcolor: '#eef0f4',
@@ -455,16 +525,19 @@ function renderChart(data) {
 
 // ── Table ──────────────────────────────────────────────────────────────────
 function renderTable(events, minYieldMBq, genYield = 1) {
+  const tu = currentTimeUnit;
+  document.getElementById('time-col-header').textContent = `Time (${tu.label})`;
   tableBody.innerHTML = '';
   let runningMBq = 0;
   events.forEach(e => {
     const practicalMBq = e.yield_MBq * genYield;
     runningMBq += practicalMBq;
+    const timeDisplay       = hToUnit(e.time_h, tu).toLocaleString(undefined, { maximumFractionDigits: 2 });
     const yieldDisplay      = fromMBq(practicalMBq).toLocaleString(undefined, { maximumFractionDigits: 2 });
     const cumulativeDisplay = fromMBq(runningMBq).toLocaleString(undefined,   { maximumFractionDigits: 2 });
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${e.time_h.toFixed(1)}</td>
+      <td>${timeDisplay}</td>
       <td>${yieldDisplay}</td>
       <td>${cumulativeDisplay}</td>
     `;
@@ -480,27 +553,28 @@ function renderCumulativeChart(events, minYieldMBq, genYield = 1) {
   cumulativeDiv.classList.remove('hidden');
 
   const ul = unitLabel();
-  const x = [0];
-  const y = [0];
+  const tu = currentTimeUnit;
+  const x = [];
+  const y = [];
   let running = 0;
   events.forEach(e => {
     running += fromMBq(e.yield_MBq * genYield);
-    x.push(e.time_h);
+    x.push(hToUnit(e.time_h, tu));
     y.push(running);
   });
 
   const traces = [{
-    x: x.slice(1),  // drop the leading 0 — bars start at first milking event
-    y: y.slice(1),
+    x,
+    y,
     type: 'bar',
     marker: { color: '#27ae60', opacity: 0.85 },
     name: `Cumulative yield (${ul})`,
-    hovertemplate: `<b>%{x:.1f} h</b><br>%{y:.2f} ${ul}<extra></extra>`,
+    hovertemplate: `<b>%{x:.2f} ${tu.label}</b><br>%{y:.2f} ${ul}<extra></extra>`,
   }];
 
   const layout = {
     margin: { t: 20, r: 40, b: 50, l: 80 },
-    xaxis: { title: 'Time (h)', gridcolor: '#eef0f4' },
+    xaxis: { title: `Time (${tu.label})`, gridcolor: '#eef0f4' },
     yaxis: { title: `Cumulative yield (${ul})`, gridcolor: '#eef0f4' },
     plot_bgcolor: '#fff',
     paper_bgcolor: '#fff',
