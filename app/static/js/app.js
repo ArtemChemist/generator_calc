@@ -12,8 +12,9 @@ const API = {
 };
 
 // ── State ──────────────────────────────────────────────────────────────────
-let selectedParent = null;    // { symbol, half_life_s }
-let selectedDaughter = null;  // { symbol, half_life_s, branching_ratio }
+let selectedParent = null;        // { symbol, half_life_s }
+let selectedDaughter = null;      // { symbol, half_life_s, branching_ratio }
+let selectedIntermediates = [];   // [{ symbol, half_life_s }, ...]
 let searchDebounce = null;
 let currentUnit = 'MBq';
 let lastResult = null;
@@ -84,6 +85,7 @@ function onModeChange() {
     customSection.classList.remove('hidden');
     selectedParent = null;
     selectedDaughter = null;
+    selectedIntermediates = [];
   }
 }
 
@@ -118,9 +120,21 @@ function onUnitChange() {
 // ── Preset ─────────────────────────────────────────────────────────────────
 function onPresetChange() {
   const p = JSON.parse(presetSelect.value);
-  selectedParent   = { symbol: p.parent_symbol,   half_life_s: p.parent_half_life_s };
-  selectedDaughter = { symbol: p.daughter_symbol, half_life_s: p.daughter_half_life_s, branching_ratio: 1 };
-  presetMeta.innerHTML = formatMeta(p.parent_symbol, p.parent_half_life_s, p.daughter_symbol, p.daughter_half_life_s);
+  selectedParent        = { symbol: p.parent_symbol,   half_life_s: p.parent_half_life_s };
+  selectedDaughter      = { symbol: p.daughter_symbol, half_life_s: p.daughter_half_life_s, branching_ratio: 1 };
+  selectedIntermediates = (p.intermediate_symbols || []).map((sym, i) => ({
+    symbol: sym,
+    half_life_s: (p.intermediate_half_lives_s || [])[i] ?? null,
+  }));
+
+  let metaHtml = formatMeta(p.parent_symbol, p.parent_half_life_s, p.daughter_symbol, p.daughter_half_life_s);
+  if (selectedIntermediates.length) {
+    const viaLabels = selectedIntermediates.map(m =>
+      `<strong>${m.symbol}</strong> t<sub>½</sub> = ${formatHalfLife(m.half_life_s)}`
+    ).join(', ');
+    metaHtml += `<br><span class="chain-via">via ${viaLabels}</span>`;
+  }
+  presetMeta.innerHTML = metaHtml;
   presetMeta.classList.remove('hidden');
 }
 
@@ -229,6 +243,7 @@ async function onCalculate() {
   const body = {
     parent_symbol: selectedParent.symbol,
     daughter_symbol: selectedDaughter.symbol,
+    intermediate_symbols: selectedIntermediates.map(m => m.symbol),
     initial_activity_MBq: toMBq(initAct),
     milking_interval_h: interval,
   };
@@ -279,24 +294,43 @@ function renderChart(data) {
   const parentY = data.parent_activity_MBq.map(fromMBq);
   const daughterY = aDaughter.map(fromMBq);
 
+  const intermediateColors = ['#8e44ad', '#6c3483', '#5b2c6f'];
+  const chainSymbols = data.metadata.chain_symbols || [data.metadata.parent_symbol, data.metadata.daughter_symbol];
+
   const traces = [
     {
       x: data.time_points_h,
       y: parentY,
-      name: `${data.metadata.parent_symbol} (parent)`,
+      name: `${chainSymbols[0]} (parent)`,
       mode: 'lines',
       line: { color: '#2a5cbf', width: 2 },
-      hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${data.metadata.parent_symbol}</extra>`,
-    },
-    {
-      x: tDaughter,
-      y: daughterY,
-      name: `${data.metadata.daughter_symbol} (daughter)`,
-      mode: 'lines',
-      line: { color: '#e67e22', width: 2 },
-      hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${data.metadata.daughter_symbol}</extra>`,
+      hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${chainSymbols[0]}</extra>`,
     },
   ];
+
+  // Intermediate traces — no drops at milking (intermediates stay in column)
+  if (data.intermediate_activities_MBq) {
+    data.intermediate_activities_MBq.forEach((actArr, i) => {
+      const sym = chainSymbols[1 + i] || `Intermediate ${i + 1}`;
+      traces.push({
+        x: data.time_points_h,
+        y: actArr.map(fromMBq),
+        name: `${sym} (intermediate)`,
+        mode: 'lines',
+        line: { color: intermediateColors[i % intermediateColors.length], width: 2 },
+        hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${sym}</extra>`,
+      });
+    });
+  }
+
+  traces.push({
+    x: tDaughter,
+    y: daughterY,
+    name: `${chainSymbols[chainSymbols.length - 1]} (daughter)`,
+    mode: 'lines',
+    line: { color: '#e67e22', width: 2 },
+    hovertemplate: `<b>%{x:.2f} h</b><br>%{y:.2f} ${ul}<extra>${chainSymbols[chainSymbols.length - 1]}</extra>`,
+  });
 
   const shapes = data.milking_events.map(e => ({
     type: 'line', xref: 'x', yref: 'paper',

@@ -28,12 +28,15 @@ CREATE TABLE IF NOT EXISTS decay_modes (
 
 CREATE INDEX IF NOT EXISTS idx_decay_parent ON decay_modes(parent_symbol);
 
-CREATE TABLE IF NOT EXISTS generator_presets (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    display_name    TEXT NOT NULL,
-    parent_symbol   TEXT NOT NULL,
-    daughter_symbol TEXT NOT NULL,
-    sort_order      INTEGER DEFAULT 0
+DROP TABLE IF EXISTS generator_presets;
+
+CREATE TABLE generator_presets (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    display_name         TEXT NOT NULL,
+    parent_symbol        TEXT NOT NULL,
+    intermediate_symbols TEXT,
+    daughter_symbol      TEXT NOT NULL,
+    sort_order           INTEGER DEFAULT 0
 );
 """
 
@@ -44,12 +47,13 @@ HALF_LIFE_CORRECTIONS = {
 }
 
 PRESETS = [
-    ('Ra-225 / Ac-225', 'Ra-225', 'Ac-225', 0),
-    ('Mo-99 / Tc-99m',  'Mo-99',  'Tc-99m', 1),
-    ('Sr-90 / Y-90',    'Sr-90',  'Y-90',   2),
-    ('Ge-68 / Ga-68',   'Ge-68',  'Ga-68',  3),
-    ('Rb-82 / Kr-82',   'Rb-82',  'Kr-82',  4),
-    ('Sn-117m / In-117m', 'Sn-117m', 'In-117m', 5),
+    ('Ra-225 / Ac-225',              'Ra-225',  None,          'Ac-225',  0),
+    ('Mo-99 / Tc-99m',               'Mo-99',   None,          'Tc-99m',  1),
+    ('Sr-90 / Y-90',                 'Sr-90',   None,          'Y-90',    2),
+    ('Ge-68 / Ga-68',                'Ge-68',   None,          'Ga-68',   3),
+    ('Rb-82 / Kr-82',                'Rb-82',   None,          'Kr-82',   4),
+    ('Sn-117m / In-117m',            'Sn-117m', None,          'In-117m', 5),
+    ('Th-229 / Ac-225 (via Ra-225)', 'Th-229',  '["Ra-225"]',  'Ac-225',  6),
 ]
 
 
@@ -138,7 +142,7 @@ def main():
     )
 
     conn.executemany(
-        'INSERT OR IGNORE INTO generator_presets (display_name, parent_symbol, daughter_symbol, sort_order) VALUES (?,?,?,?)',
+        'INSERT OR IGNORE INTO generator_presets (display_name, parent_symbol, intermediate_symbols, daughter_symbol, sort_order) VALUES (?,?,?,?,?)',
         PRESETS,
     )
 

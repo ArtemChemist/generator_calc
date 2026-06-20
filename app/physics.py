@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from scipy.linalg import expm
 
 
 def simulate_generator(
@@ -114,3 +115,103 @@ def infer_duration(
 
 def activity_from_atoms(N: np.ndarray, decay_lambda: float) -> np.ndarray:
     return decay_lambda * N / 1e6  # → MBq
+
+
+def simulate_chain(
+    lambdas: list[float],
+    branching_ratios: list[float],
+    N0_first: float,
+    milking_interval_s: float,
+    duration_s: float,
+    n_points_per_interval: int = 200,
+) -> dict:
+    """
+    Simulate an N-member linear decay chain with fixed-interval milking of the last species.
+
+    Uses the matrix exponential of the ODE coefficient matrix — exact for any chain length,
+    no degenerate-case handling required. Only the last species is harvested at each milking;
+    all intermediates carry over.
+
+    lambdas: decay constants [λ0, λ1, ..., λ_{N-1}] in s⁻¹
+    branching_ratios: [br0, br1, ..., br_{N-2}] — br_i is the fraction of λ_i that feeds λ_{i+1}
+    N0_first: initial atom count of the first (parent) species
+    Returns: t_seconds, N_values (list of N arrays, one per species), milking_events
+    """
+    n = len(lambdas)
+
+    # Tridiagonal ODE matrix: A[i,i] = -λi, A[i+1,i] = br_i * λ_i
+    A = np.diag(-np.array(lambdas, dtype=float))
+    for i in range(n - 1):
+        A[i + 1, i] = branching_ratios[i] * lambdas[i]
+
+    milking_times = np.arange(milking_interval_s, duration_s, milking_interval_s)
+    segment_bounds = np.concatenate(([0.0], milking_times, [duration_s]))
+
+    t_global = []
+    N_global = [[] for _ in range(n)]
+    milking_events = []
+
+    N_seg = np.zeros(n)
+    N_seg[0] = N0_first
+
+    for i in range(len(segment_bounds) - 1):
+        t_start = segment_bounds[i]
+        t_end = segment_bounds[i + 1]
+        local_t = np.linspace(0.0, t_end - t_start, n_points_per_interval)
+
+        # Exact solution: N(t) = expm(A·t) @ N_seg
+        N_at_t = np.stack([expm(A * t) @ N_seg for t in local_t])
+
+        t_global.append(t_start + local_t)
+        for k in range(n):
+            N_global[k].append(N_at_t[:, k])
+
+        is_milking = i < len(segment_bounds) - 2
+        if is_milking:
+            N_end = N_at_t[-1]
+            yield_atoms = float(N_end[-1])
+            milking_events.append((float(t_end), yield_atoms))
+            N_seg = N_end.copy()
+            N_seg[-1] = 0.0  # harvest last species; intermediates carry over
+        else:
+            N_seg = N_at_t[-1]
+
+    return {
+        't_seconds': np.concatenate(t_global),
+        'N_values': [np.concatenate(N_global[k]) for k in range(n)],
+        'milking_events': milking_events,
+    }
+
+
+def infer_duration_chain(
+    lambdas: list[float],
+    branching_ratios: list[float],
+    N0_first: float,
+    milking_interval_s: float,
+    min_yield_atoms: float,
+    max_duration_s: float = 10 * 365.25 * 24 * 3600,
+) -> float | None:
+    """
+    Walk milking cycles for an N-member chain until the last species yield drops below min_yield_atoms.
+    The transition matrix expm(A * milking_interval_s) is computed once and reused each cycle.
+    Returns the time (s) of the first below-threshold event, or None if never reached.
+    """
+    n = len(lambdas)
+    A = np.diag(-np.array(lambdas, dtype=float))
+    for i in range(n - 1):
+        A[i + 1, i] = branching_ratios[i] * lambdas[i]
+
+    M = expm(A * milking_interval_s)  # transition matrix, computed once
+    max_iter = int(max_duration_s / milking_interval_s)
+
+    N_seg = np.zeros(n)
+    N_seg[0] = N0_first
+
+    for i in range(max_iter):
+        N_end = M @ N_seg
+        if N_end[-1] < min_yield_atoms:
+            return (i + 1) * milking_interval_s
+        N_seg = N_end.copy()
+        N_seg[-1] = 0.0
+
+    return None
