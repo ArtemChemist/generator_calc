@@ -306,4 +306,53 @@ input:focus, select:focus {
   color: #2d6a2d;
 }
 
+/* ── Chain builder (custom mode) ── */
+.chain-step { margin-top: 10px; }
+
+.chain-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.chain-step-header label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #444;
+}
+
+.chain-remove-btn {
+  background: none;
+  border: none;
+  color: #c0392b;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  width: auto;
+}
+
+.chain-remove-btn:hover { text-decoration: underline; }
+
+.chain-add-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 6px;
+  background: #f0f4fb;
+  color: #2a5cbf;
+  border: 1px dashed #8aaae0;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chain-add-btn:hover { background: #e0e8f8; }
+
+.chain-role { color: #888; font-size: 11px; font-weight: 400; }
+.chain-arrow { color: #aab0c0; margin: 1px 0; display: block; }
+.chain-via { color: #6a4a8a; font-size: 11px; }
+
 .hidden { display: none !important; }

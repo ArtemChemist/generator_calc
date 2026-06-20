@@ -13,8 +13,9 @@ const API = {
 
 // ── State ──────────────────────────────────────────────────────────────────
 let selectedParent = null;        // { symbol, half_life_s }
-let selectedDaughter = null;      // { symbol, half_life_s, branching_ratio }
+let selectedDaughter = null;      // { symbol, half_life_s }
 let selectedIntermediates = [];   // [{ symbol, half_life_s }, ...]
+let chainSelections = [];         // parallel to chain-step divs; each is null or { symbol, half_life_s }
 let searchDebounce = null;
 let currentUnit = 'MBq';
 let lastResult = null;
@@ -33,7 +34,8 @@ const customSection   = document.getElementById('custom-section');
 const customMeta      = document.getElementById('custom-meta');
 const parentSearch    = document.getElementById('parent-search');
 const parentResults   = document.getElementById('parent-results');
-const daughterSelect  = document.getElementById('daughter-select');
+const chainStepsEl    = document.getElementById('chain-steps');
+const addStepBtn      = document.getElementById('add-step-btn');
 const calcBtn             = document.getElementById('calculate-btn');
 const errorMsg            = document.getElementById('error-msg');
 const inferredInfo        = document.getElementById('inferred-info');
@@ -66,7 +68,7 @@ async function initPage() {
   );
   presetSelect.addEventListener('change', onPresetChange);
   parentSearch.addEventListener('input', onParentInput);
-  daughterSelect.addEventListener('change', onDaughterChange);
+  addStepBtn.addEventListener('click', onAddStep);
   calcBtn.addEventListener('click', onCalculate);
   document.addEventListener('click', e => {
     if (!e.target.closest('#parent-search-wrapper')) hideResults();
@@ -86,6 +88,11 @@ function onModeChange() {
     selectedParent = null;
     selectedDaughter = null;
     selectedIntermediates = [];
+    chainSelections = [];
+    chainStepsEl.innerHTML = '';
+    addStepBtn.classList.add('hidden');
+    customMeta.classList.add('hidden');
+    parentSearch.value = '';
   }
 }
 
@@ -167,50 +174,130 @@ function hideResults() {
   parentResults.classList.add('hidden');
 }
 
-async function selectParent(item) {
+function selectParent(item) {
   parentSearch.value = item.symbol;
   selectedParent = { symbol: item.symbol, half_life_s: item.half_life_s };
   hideResults();
-
-  daughterSelect.innerHTML = '<option value="">Loading…</option>';
-  daughterSelect.disabled = true;
-  customMeta.classList.add('hidden');
   selectedDaughter = null;
+  selectedIntermediates = [];
+  chainSelections = [];
+  addStepBtn.classList.add('hidden');
+  customMeta.classList.add('hidden');
+  buildStep(0, item.symbol);
+}
 
-  const daughters = await API.daughters(item.symbol);
-  daughterSelect.innerHTML = '';
-  if (!daughters.length) {
-    daughterSelect.innerHTML = '<option value="">No decay daughters found</option>';
-    return;
+// ── Chain builder ──────────────────────────────────────────────────────────
+function buildStep(stepIndex, parentSym) {
+  // Remove any steps at or after this index
+  const existing = chainStepsEl.querySelectorAll('.chain-step');
+  existing.forEach((el, i) => { if (i >= stepIndex) el.remove(); });
+  chainSelections = chainSelections.slice(0, stepIndex);
+
+  const stepDiv = document.createElement('div');
+  stepDiv.className = 'chain-step';
+
+  const header = document.createElement('div');
+  header.className = 'chain-step-header';
+
+  const lbl = document.createElement('label');
+  lbl.textContent = `Daughter of ${parentSym}`;
+  lbl.htmlFor = `step-select-${stepIndex}`;
+  header.appendChild(lbl);
+
+  if (stepIndex > 0) {
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'chain-remove-btn';
+    removeBtn.textContent = '✕ Remove';
+    removeBtn.addEventListener('click', () => removeStepsFrom(stepIndex));
+    header.appendChild(removeBtn);
   }
-  daughters.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = JSON.stringify(d);
-    opt.textContent = `${d.daughter_symbol} (${(d.branching_ratio * 100).toFixed(1)}% — ${d.mode})`;
-    daughterSelect.appendChild(opt);
-  });
-  daughterSelect.disabled = false;
-  if (daughters.length === 1) {
-    daughterSelect.selectedIndex = 0;
-    onDaughterChange();
-  } else {
+
+  stepDiv.appendChild(header);
+
+  const sel = document.createElement('select');
+  sel.id = `step-select-${stepIndex}`;
+  sel.disabled = true;
+  sel.innerHTML = '<option value="">Loading…</option>';
+  sel.addEventListener('change', () => onStepChange(stepIndex, sel));
+  stepDiv.appendChild(sel);
+
+  chainStepsEl.appendChild(stepDiv);
+  addStepBtn.classList.add('hidden');
+
+  API.daughters(parentSym).then(daughters => {
+    sel.innerHTML = '';
+    if (!daughters.length) {
+      sel.innerHTML = '<option value="">No daughters found</option>';
+      return;
+    }
     const blank = document.createElement('option');
     blank.value = '';
     blank.textContent = '— select daughter —';
-    daughterSelect.prepend(blank);
-    daughterSelect.selectedIndex = 0;
-  }
+    sel.appendChild(blank);
+    daughters.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify(d);
+      opt.textContent = `${d.daughter_symbol} (${(d.branching_ratio * 100).toFixed(1)}% — ${d.mode})`;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+  });
 }
 
-function onDaughterChange() {
-  if (!daughterSelect.value) { selectedDaughter = null; customMeta.classList.add('hidden'); return; }
-  const d = JSON.parse(daughterSelect.value);
-  selectedDaughter = { symbol: d.daughter_symbol, half_life_s: d.daughter_half_life_s, branching_ratio: d.branching_ratio };
-  customMeta.innerHTML = formatMeta(
-    selectedParent.symbol, selectedParent.half_life_s,
-    d.daughter_symbol, d.daughter_half_life_s,
-    d.branching_ratio, d.mode
-  );
+function onStepChange(stepIndex, sel) {
+  removeStepsFrom(stepIndex + 1);
+
+  if (!sel.value) {
+    chainSelections[stepIndex] = null;
+    updateChainState();
+    return;
+  }
+
+  const d = JSON.parse(sel.value);
+  chainSelections[stepIndex] = { symbol: d.daughter_symbol, half_life_s: d.daughter_half_life_s };
+  updateChainState();
+}
+
+function removeStepsFrom(fromIndex) {
+  const steps = chainStepsEl.querySelectorAll('.chain-step');
+  steps.forEach((el, i) => { if (i >= fromIndex) el.remove(); });
+  chainSelections = chainSelections.slice(0, fromIndex);
+  updateChainState();
+}
+
+function updateChainState() {
+  const valid = chainSelections.filter(Boolean);
+  if (valid.length === 0) {
+    selectedDaughter = null;
+    selectedIntermediates = [];
+  } else {
+    selectedDaughter = valid[valid.length - 1];
+    selectedIntermediates = valid.slice(0, -1);
+  }
+  // Show "Add step" only when the last step has a valid selection
+  const lastValid = chainSelections.length > 0 && chainSelections[chainSelections.length - 1] != null;
+  addStepBtn.classList.toggle('hidden', !lastValid);
+  updateChainMeta();
+}
+
+function onAddStep() {
+  if (!selectedDaughter) return;
+  const nextIndex = chainSelections.length;
+  buildStep(nextIndex, selectedDaughter.symbol);
+}
+
+function updateChainMeta() {
+  if (!selectedParent || !selectedDaughter) {
+    customMeta.classList.add('hidden');
+    return;
+  }
+  const chain = [selectedParent, ...selectedIntermediates, selectedDaughter];
+  const html = chain.map((item, i) => {
+    const role = i === 0 ? 'parent' : i === chain.length - 1 ? 'daughter' : 'intermediate';
+    return `<strong>${item.symbol}</strong> t<sub>½</sub> = ${formatHalfLife(item.half_life_s)} <span class="chain-role">(${role})</span>`;
+  }).join('<span class="chain-arrow">↓</span>');
+  customMeta.innerHTML = html;
   customMeta.classList.remove('hidden');
 }
 

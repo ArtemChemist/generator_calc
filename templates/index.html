@@ -30,13 +30,14 @@
 
         <div id="custom-section" class="hidden">
           <label for="parent-search">Parent isotope</label>
-          <input type="text" id="parent-search" placeholder="e.g. Ra-225" autocomplete="off">
-          <ul id="parent-results" class="dropdown hidden"></ul>
+          <div id="parent-search-wrapper">
+            <input type="text" id="parent-search" placeholder="e.g. Th-229" autocomplete="off">
+            <ul id="parent-results" class="dropdown hidden"></ul>
+          </div>
 
-          <label for="daughter-select">Daughter isotope</label>
-          <select id="daughter-select" disabled>
-            <option value="">— select parent first —</option>
-          </select>
+          <div id="chain-steps"></div>
+          <button type="button" id="add-step-btn" class="chain-add-btn hidden">+ Add decay step</button>
+
           <div id="custom-meta" class="meta-box hidden"></div>
         </div>
       </fieldset>
