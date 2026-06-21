@@ -18,7 +18,8 @@ let selectedIntermediates = [];   // [{ symbol, half_life_s }, ...]
 let chainSelections = [];         // parallel to chain-step divs; each is null or { symbol, half_life_s }
 let searchDebounce = null;
 let currentUnit = 'MBq';
-let currentTimeUnit = { label: 'h', secs: 3600 };
+let currentTimeUnit  = { label: 'h', secs: 3600 };  // graph x-axis + duration input (parent timescale)
+let milkingTimeUnit  = { label: 'h', secs: 3600 };  // milking interval input (daughter timescale)
 let lastResult = null;
 
 // ── Time-unit helpers ──────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ const TIME_UNITS = [
   { label: 'min',       secs: 60 },
   { label: 'h',         secs: 3600 },
   { label: 'd',         secs: 86400 },
+  { label: 'months',    secs: 30.4375 * 86400 },   // covers ~30–365 d half-lives
   { label: 'y',         secs: 365.25 * 86400 },
   { label: 'decades',   secs: 10 * 365.25 * 86400 },
   { label: 'centuries', secs: 100 * 365.25 * 86400 },
@@ -43,6 +45,11 @@ function pickTimeUnit(halfLifeS) {
 
 function hToUnit(hours, u) { return hours * 3600 / u.secs; }
 
+function getParentHalfLifeS(data) {
+  if (data.metadata.chain_half_lives_h) return data.metadata.chain_half_lives_h[0] * 3600;
+  return (data.metadata.parent_half_life_h || 1) * 3600;
+}
+
 function getDaughterHalfLifeS(data) {
   if (data.metadata.chain_half_lives_h) {
     const hls = data.metadata.chain_half_lives_h;
@@ -51,24 +58,29 @@ function getDaughterHalfLifeS(data) {
   return (data.metadata.daughter_half_life_h || 1) * 3600;
 }
 
-function updateInputTimeUnit(halfLifeS) {
-  const prev = currentTimeUnit;
-  const next = pickTimeUnit(halfLifeS);
-  if (prev.secs === next.secs) return;
+function updateInputTimeUnit(parentHalfLifeS, daughterHalfLifeS) {
+  const nextGraph = pickTimeUnit(parentHalfLifeS);
+  const nextMilk  = pickTimeUnit(daughterHalfLifeS);
 
-  // Convert any already-entered values to the new unit
-  ['milking-interval', 'duration'].forEach(id => {
-    const el = document.getElementById(id);
+  if (currentTimeUnit.secs !== nextGraph.secs) {
+    const el = document.getElementById('duration');
     if (el.value) {
-      const hours = parseFloat(el.value) * prev.secs / 3600;
-      const converted = hours * 3600 / next.secs;
-      el.value = parseFloat(converted.toPrecision(4));
+      const hours = parseFloat(el.value) * currentTimeUnit.secs / 3600;
+      el.value = parseFloat((hours * 3600 / nextGraph.secs).toPrecision(4));
     }
-  });
+    currentTimeUnit = nextGraph;
+    document.getElementById('duration-unit-lbl').textContent = nextGraph.label;
+  }
 
-  currentTimeUnit = next;
-  document.getElementById('interval-unit-lbl').textContent = next.label;
-  document.getElementById('duration-unit-lbl').textContent = next.label;
+  if (milkingTimeUnit.secs !== nextMilk.secs) {
+    const el = document.getElementById('milking-interval');
+    if (el.value) {
+      const hours = parseFloat(el.value) * milkingTimeUnit.secs / 3600;
+      el.value = parseFloat((hours * 3600 / nextMilk.secs).toPrecision(4));
+    }
+    milkingTimeUnit = nextMilk;
+    document.getElementById('interval-unit-lbl').textContent = nextMilk.label;
+  }
 }
 
 const MBQ_PER_MCI = 37;
@@ -194,7 +206,7 @@ function onPresetChange() {
   }
   presetMeta.innerHTML = metaHtml;
   presetMeta.classList.remove('hidden');
-  updateInputTimeUnit(p.daughter_half_life_s);
+  updateInputTimeUnit(p.parent_half_life_s, p.daughter_half_life_s);
 }
 
 // ── Custom parent search ───────────────────────────────────────────────────
@@ -236,6 +248,19 @@ function selectParent(item) {
   addStepBtn.classList.add('hidden');
   customMeta.classList.add('hidden');
   buildStep(0, item.symbol);
+
+  // Update duration unit immediately based on parent's timescale;
+  // milking unit will be updated once a daughter is selected.
+  const nextGraph = pickTimeUnit(item.half_life_s);
+  if (currentTimeUnit.secs !== nextGraph.secs) {
+    const el = document.getElementById('duration');
+    if (el.value) {
+      const hours = parseFloat(el.value) * currentTimeUnit.secs / 3600;
+      el.value = parseFloat((hours * 3600 / nextGraph.secs).toPrecision(4));
+    }
+    currentTimeUnit = nextGraph;
+    document.getElementById('duration-unit-lbl').textContent = nextGraph.label;
+  }
 }
 
 // ── Chain builder ──────────────────────────────────────────────────────────
@@ -326,7 +351,8 @@ function updateChainState() {
   } else {
     selectedDaughter = valid[valid.length - 1];
     selectedIntermediates = valid.slice(0, -1);
-    if (selectedDaughter.half_life_s) updateInputTimeUnit(selectedDaughter.half_life_s);
+    if (selectedParent && selectedDaughter.half_life_s)
+      updateInputTimeUnit(selectedParent.half_life_s, selectedDaughter.half_life_s);
   }
   // Show "Add step" only when the last step has a valid selection
   const lastValid = chainSelections.length > 0 && chainSelections[chainSelections.length - 1] != null;
@@ -370,13 +396,12 @@ async function onCalculate() {
   const genYieldPct = parseFloat(document.getElementById('gen-yield').value) || 100;
   const genYield = Math.min(Math.max(genYieldPct, 0), 100) / 100;
 
-  // Convert user inputs from currentTimeUnit to hours for the API
-  const tu = currentTimeUnit;
-  const interval_h = intervalRaw * tu.secs / 3600;
-  const duration_h = durationParsed !== null ? durationParsed * tu.secs / 3600 : null;
+  // Milking interval is in daughter's timescale; duration is in parent's timescale
+  const interval_h = intervalRaw * milkingTimeUnit.secs / 3600;
+  const duration_h = durationParsed !== null ? durationParsed * currentTimeUnit.secs / 3600 : null;
 
   if (!initAct || initAct <= 0) { showError('Initial activity must be > 0.'); return; }
-  if (!intervalRaw || intervalRaw <= 0) { showError(`Milking interval must be > 0 ${tu.label}.`); return; }
+  if (!intervalRaw || intervalRaw <= 0) { showError(`Milking interval must be > 0 ${milkingTimeUnit.label}.`); return; }
   if (genYield <= 0) { showError('Generator yield must be > 0%.'); return; }
   if (duration_h === null && !minYield) {
     showError('Provide duration, min yield threshold, or both.'); return;
@@ -407,10 +432,11 @@ async function onCalculate() {
   lastResult._genYield = genYield;
   lastResult._minYieldDisplay = minYield ? toMBq(minYield) : 0; // practical threshold in MBq
 
-  // Confirm time unit from API response (should match selection-time unit)
-  currentTimeUnit = pickTimeUnit(getDaughterHalfLifeS(data));
-  document.getElementById('interval-unit-lbl').textContent = currentTimeUnit.label;
+  // Confirm time units from API response (should match selection-time units)
+  currentTimeUnit = pickTimeUnit(getParentHalfLifeS(data));
+  milkingTimeUnit  = pickTimeUnit(getDaughterHalfLifeS(data));
   document.getElementById('duration-unit-lbl').textContent = currentTimeUnit.label;
+  document.getElementById('interval-unit-lbl').textContent = milkingTimeUnit.label;
 
   if (data.inferred_duration_h !== null) {
     const t = hToUnit(data.inferred_duration_h, currentTimeUnit);
