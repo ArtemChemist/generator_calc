@@ -96,8 +96,8 @@ def calculate():
     if duration_h is not None:
         if duration_h <= milking_interval_h:
             return jsonify({'error': 'duration_h must be greater than milking_interval_h'}), 400
-        if duration_h > 8760:
-            return jsonify({'error': 'duration_h must be <= 8760 (1 year)'}), 400
+        if duration_h / milking_interval_h > 2000:
+            return jsonify({'error': 'Simulation would exceed 2000 milking events. Increase the milking interval or reduce the duration.'}), 400
 
     db = get_db()
     hl_parent = _half_life_row(parent_symbol, db)

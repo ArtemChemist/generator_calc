@@ -111,6 +111,9 @@ const tableBody           = document.querySelector('#milking-table tbody');
 
 // ── Init ───────────────────────────────────────────────────────────────────
 async function initPage() {
+  currentUnit = document.querySelector('input[name="unit"]:checked')?.value || 'MBq';
+  document.querySelectorAll('.unit-lbl').forEach(el => el.textContent = currentUnit);
+
   const presets = await API.presets();
   presets.forEach(p => {
     const opt = document.createElement('option');
@@ -182,8 +185,7 @@ function onUnitChange() {
   if (lastResult) {
     renderChart(lastResult);
     renderTable(lastResult.milking_events, lastResult._minYieldDisplay, lastResult._genYield);
-    const eventsVisible = !document.getElementById('tab-events').classList.contains('hidden');
-    if (eventsVisible) renderCumulativeChart(lastResult.milking_events, lastResult._minYieldDisplay, lastResult._genYield);
+    renderCumulativeChart(lastResult.milking_events, lastResult._minYieldDisplay, lastResult._genYield);
   }
 }
 
@@ -446,6 +448,7 @@ async function onCalculate() {
 
   renderChart(data);
   renderTable(data.milking_events, data._minYieldDisplay, genYield);
+  renderCumulativeChart(data.milking_events, data._minYieldDisplay, genYield);
 }
 
 // ── Chart ─────────────────────────────────────────────────────────────────

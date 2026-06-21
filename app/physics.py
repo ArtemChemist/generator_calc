@@ -10,7 +10,7 @@ def simulate_generator(
     N1_0: float,
     milking_interval_s: float,
     duration_s: float,
-    n_points_per_interval: int = 50,
+    n_points_per_interval: int = 20,
 ) -> dict:
     """
     Analytic Bateman simulation of a parent→daughter generator with fixed-interval milking.
@@ -123,7 +123,7 @@ def simulate_chain(
     N0_first: float,
     milking_interval_s: float,
     duration_s: float,
-    n_points_per_interval: int = 200,
+    n_points_per_interval: int = 20,
 ) -> dict:
     """
     Simulate an N-member linear decay chain with fixed-interval milking of the last species.
