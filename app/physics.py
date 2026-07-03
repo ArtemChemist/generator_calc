@@ -144,20 +144,25 @@ def simulate_chain(
     for i in range(num_isotopes_in_chain - 1):
         A[i + 1, i] = branching_ratios[i] * lambdas[i]
 
-    milking_times = np.arange(milking_interval_s, duration_s, milking_interval_s)
-    segment_bounds = np.concatenate(([0.0], milking_times, [duration_s]))
+    #Timestamps for each milking event, in seconds
+    milking_timestamps = np.concatenate(([0.0], 
+                                         np.arange(milking_interval_s, duration_s, milking_interval_s), 
+                                         [duration_s]))
 
-    t_global = []
+    t_global = [] #timepoints along the time axis for which we will calculate isotope quantities int eh mixture
     N_global = [[] for _ in range(num_isotopes_in_chain)]
     milking_events = []
 
+    # Array of the amounts of each isotope in the chain.
+    # Initially, only the parent is present
     N_seg = np.zeros(num_isotopes_in_chain)
     N_seg[0] = N0_first
 
-    for i in range(len(segment_bounds) - 1):
-        t_start = segment_bounds[i]
-        t_end = segment_bounds[i + 1]
-        local_t = np.linspace(0.0, t_end - t_start, n_points_per_interval)
+    # The main cylcle will unfold forward in time
+    for i in range(len(milking_timestamps) - 1):
+        t_start = milking_timestamps[i] #timestamp of the beginning of the milking interval
+        t_end = milking_timestamps[i + 1] #timestamp of the beginning of the end interval
+        local_t = np.linspace(0.0, t_end - t_start, n_points_per_interval) #timestamps for the points within the milking interval
 
         # Exact solution: N(t) = expm(A·t) @ N_seg
         N_at_t = np.stack([expm(A * t) @ N_seg for t in local_t])
@@ -166,7 +171,7 @@ def simulate_chain(
         for k in range(num_isotopes_in_chain):
             N_global[k].append(N_at_t[:, k])
 
-        is_milking = i < len(segment_bounds) - 2
+        is_milking = i < len(milking_timestamps) - 2
         if is_milking:
             N_end = N_at_t[-1]
             yield_atoms = float(N_end[-1])
