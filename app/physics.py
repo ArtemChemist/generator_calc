@@ -137,21 +137,21 @@ def simulate_chain(
     N0_first: initial atom count of the first (parent) species
     Returns: t_seconds, N_values (list of N arrays, one per species), milking_events
     """
-    n = len(lambdas)
+    num_isotopes_in_chain = len(lambdas)
 
     # Tridiagonal ODE matrix: A[i,i] = -λi, A[i+1,i] = br_i * λ_i
     A = np.diag(-np.array(lambdas, dtype=float))
-    for i in range(n - 1):
+    for i in range(num_isotopes_in_chain - 1):
         A[i + 1, i] = branching_ratios[i] * lambdas[i]
 
     milking_times = np.arange(milking_interval_s, duration_s, milking_interval_s)
     segment_bounds = np.concatenate(([0.0], milking_times, [duration_s]))
 
     t_global = []
-    N_global = [[] for _ in range(n)]
+    N_global = [[] for _ in range(num_isotopes_in_chain)]
     milking_events = []
 
-    N_seg = np.zeros(n)
+    N_seg = np.zeros(num_isotopes_in_chain)
     N_seg[0] = N0_first
 
     for i in range(len(segment_bounds) - 1):
@@ -163,7 +163,7 @@ def simulate_chain(
         N_at_t = np.stack([expm(A * t) @ N_seg for t in local_t])
 
         t_global.append(t_start + local_t)
-        for k in range(n):
+        for k in range(num_isotopes_in_chain):
             N_global[k].append(N_at_t[:, k])
 
         is_milking = i < len(segment_bounds) - 2
@@ -178,7 +178,7 @@ def simulate_chain(
 
     return {
         't_seconds': np.concatenate(t_global),
-        'N_values': [np.concatenate(N_global[k]) for k in range(n)],
+        'N_values': [np.concatenate(N_global[k]) for k in range(num_isotopes_in_chain)],
         'milking_events': milking_events,
     }
 
