@@ -12,11 +12,20 @@ Let's consider the most important isotope generator in nuclear medicine: Tc gene
 
 where $\lambda_{Mo} = \ln2/65.94h$, $\lambda_{Tc} = \ln2/6.01h$ and branching ratio $b = 0.876$
 
-What this is saying is that the rate of accumulation of \textsuperscript{99}Mo is negatively proportional to its concentration, i.e. the more \textsuperscript{99}Mo we have in solution the slower it accumulates, or what is the same, the faster it decays. This is essentially a definition of the radioactive decay. For the \textsuperscript{99m}Tc the picture is more complex, but is still intuitive: its rate of accumulation is \textit{negatively} proportional to its own concentration $[{^{99m}Tc}]$, but also \textit{positively} proportional to the parent's concentration $[^{99}Mo]$. Also, let's not forget that the $[^{99}Mo]$ is scaled to the branching ratio in the second equation. 
+What this is saying is that the rate of accumulation of \textsuperscript{99}Mo is negatively proportional to its concentration, i.e. the more \textsuperscript{99}Mo we have in solution the slower it accumulates, or what is the same, the faster it decays. This is essentially a definition of the radioactive decay. For the \textsuperscript{99m}Tc the picture is more complex, but is still intuitive: its rate of accumulation is \textit{negatively} proportional to its own concentration $[{^{99m}Tc}]$, but also \textit{positively} proportional to the parent's concentration $[^{99}Mo]$. Also, let's not forget that the $[^{99}Mo]$ is scaled to the branching ratio in the second equation.
+
 
 **Matrix form**
 
-\$\$A = \textbackslash{}begin\{pmatrix\} -\textbackslash{}lambda\_1 \& 0 \textbackslash{}\textbackslash{} b\textbackslash{}lambda\_1 \& -\textbackslash{}lambda\_2 \textbackslash{}end\{pmatrix\}\$\$
+Now notice that this same system can be re-written in matrix form. Just a simple change in notation, nothing more:
+
+\begin{equation}
+	\dfrac{d}{dt} 
+	\begin{vmatrix} [^{99}Mo] \\ \\ [^{99m}Tc] \end{vmatrix} = 
+	\begin{pmatrix} -\lambda_{Mo} & 0 \\ & \\b\lambda_{Mo} & -\lambda_{Tc} \end{pmatrix}
+	\begin{vmatrix} [^{99}Mo] \\ \\ [^{99m}Tc] \end{vmatrix}
+\end{equation}
+
 
 Only the subdiagonal entry picks up the factor \$b\$. Diagonalizing exactly as before (eigenvalues still \$-\textbackslash{}lambda\_1, -\textbackslash{}lambda\_2\$ since those live on the diagonal regardless of \$b\$):
 
