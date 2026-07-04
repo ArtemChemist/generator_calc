@@ -1,0 +1,33 @@
+\section{Two solutions to the same equations}
+\label{sec:two_solutions}
+
+Let's consider the most important isotope generator in nuclear medicine: Tc generator, that is still a staple of the clinical practice, used for millions upon millions of SPECT scans every year, all around the world. Mo-99 decays two ways: \~{}87.6\% to Tc-99m (branching ratio $b$) and the remaining \~{}12.4\% directly to (virtually) stable Tc-99, which does not factor into the generator considerations. From here, a conventional chemist's thinking can easily lead us to the following system of equations:
+
+\begin{equation}
+	\begin{cases}
+		\dfrac{d[^{99}Mo]}{dt} &= -\lambda_{Mo}[^{99}Mo] \\ \\
+		\dfrac{d[^{99m}Tc]}{dt} &= b\lambda_{Mo}[^{99}Mo]-\lambda_{Tc}[^{99m}Tc]
+	\end{cases}
+\end{equation}
+
+where $\lambda_{Mo} = \ln2/65.94h$, $\lambda_{Tc} = \ln2/6.01h$ and branching ratio $b = 0.876$
+
+What this is saying is that the rate of accumulation of \textsuperscript{99}Mo is negatively proportional to its concentration, i.e. the more \textsuperscript{99}Mo we have in solution the slower it accumulates, or what is the same, the faster it decays. This is essentially a definition of the radioactive decay. For the \textsuperscript{99m}Tc the picture is more complex, but is still intuitive: its rate of accumulation is \textit{negatively} proportional to its own concentration $[{^{99m}Tc}]$, but also \textit{positively} proportional to the parent's concentration $[^{99}Mo]$. Also, let's not forget that the $[^{99}Mo]$ is scaled to the branching ratio in the second equation. 
+
+**Matrix form**
+
+\$\$A = \textbackslash{}begin\{pmatrix\} -\textbackslash{}lambda\_1 \& 0 \textbackslash{}\textbackslash{} b\textbackslash{}lambda\_1 \& -\textbackslash{}lambda\_2 \textbackslash{}end\{pmatrix\}\$\$
+
+Only the subdiagonal entry picks up the factor \$b\$. Diagonalizing exactly as before (eigenvalues still \$-\textbackslash{}lambda\_1, -\textbackslash{}lambda\_2\$ since those live on the diagonal regardless of \$b\$):
+
+\$\$e\^{}\{At\} = \textbackslash{}begin\{pmatrix\} e\^{}\{-\textbackslash{}lambda\_1 t\} \& 0 \textbackslash{}\textbackslash{}[4pt] \textbackslash{}dfrac\{b\textbackslash{}lambda\_1\}\{\textbackslash{}lambda\_2-\textbackslash{}lambda\_1\}\textbackslash{}left(e\^{}\{-\textbackslash{}lambda\_1 t\}-e\^{}\{-\textbackslash{}lambda\_2 t\}\textbackslash{}right) \& e\^{}\{-\textbackslash{}lambda\_2 t\} \textbackslash{}end\{pmatrix\}\$\$
+
+So Bateman becomes:
+
+\$\$N\_2(t) = N\_1\^{}0\textbackslash{},\textbackslash{}frac\{b\textbackslash{}lambda\_1\}\{\textbackslash{}lambda\_2-\textbackslash{}lambda\_1\}\textbackslash{}left(e\^{}\{-\textbackslash{}lambda\_1 t\}-e\^{}\{-\textbackslash{}lambda\_2 t\}\textbackslash{}right)\$\$
+
+— literally just the un-branched formula times \$b\$. This makes sense: branching ratio only ever multiplies the *production* term, never the decay-loss term, so it factors out linearly and leaves the transient/secular equilibrium math (the classic 6-hour Mo-99/Tc-99m generator ``milking'' curve) otherwise unchanged.
+
+**Where it stops being this simple**
+
+If you extend the chain further (e.g. tracking Tc-99 ground state buildup too, or handling isotopes with 3+ branches like your Ac-225 chain has at Bi-213 → Tl-209/Po-213), you get multiple daughters fed from one parent. That's not a single chain anymore — \$A\$ becomes a genuine tree structure, and you'd want one column feeding multiple rows (each weighted by its own \$b\_i\$, with \$\textbackslash{}sum b\_i = 1\$) rather than a simple bidiagonal matrix. The matrix exponential machinery still works fine, it's just no longer tridiagonal/bidiagonal, so `expm` is basically mandatory rather than a convenience at that point.

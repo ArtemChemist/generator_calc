@@ -1,0 +1,61 @@
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}% Math and Physical Sciences Numbered Reference Style
+%%\documentclass[pdflatex,sn-nature]{sn-jnl}% Nature Portfolio
+%%\documentclass[pdflatex,sn-basic]{sn-jnl}% Basic Springer Nature / Chemistry
+%%\documentclass[pdflatex,sn-aps]{sn-jnl}% American Physical Society
+%%\documentclass[pdflatex,sn-vancouver-num]{sn-jnl}% Vancouver Numbered
+
+\usepackage{graphicx}%
+\usepackage{multirow}%
+\usepackage{amsmath,amssymb,amsfonts}%
+\usepackage{amsthm}%
+\usepackage{mathrsfs}%
+\usepackage[title]{appendix}%
+\usepackage{xcolor}%
+\usepackage{textcomp}%
+\usepackage{manyfoot}%
+\usepackage{booktabs}%
+
+\theoremstyle{thmstyleone}%
+\newtheorem{theorem}{Theorem}%
+\newtheorem{proposition}[theorem]{Proposition}%
+
+\theoremstyle{thmstyletwo}%
+\newtheorem{example}{Example}%
+\newtheorem{remark}{Remark}%
+
+\theoremstyle{thmstylethree}%
+\newtheorem{definition}{Definition}%
+
+\raggedbottom
+
+\begin{document}
+
+\title[Relationship between Bateman and matrices]{Multi-isotope generator calculation}
+
+\author*[1]{\fnm{Artem} \sur{Lebedev}}\email{artem@indiechemistry.com}
+
+\affil*[1]{\orgdiv{Department of Chemistry and Chemical Biology}, \orgname{McMaster University}, \orgaddress{\city{Hamilton, ON}, \country{Canada}}}
+
+\abstract{A brief explanation of the math behind solving arbitrarily complex isotope generator.}
+
+\maketitle
+
+\input{sections/introduction}
+\input{sections/two_solutions}
+
+\backmatter
+
+\bmhead{Acknowledgements}
+Author thanks Ian Horwath for a stimulating discussion and Andrew Knight for the feedback on the web app version of these computations.
+
+\section*{Declarations}
+
+\begin{itemize}
+\item Funding: The work was entirely self-funded
+\item Conflict of interest: The author is an employee of BWXT Medical, Ltd.
+\item Data availability: The article and the app code are available on GitHub
+\end{itemize}
+
+\bibliography{bibliography/bateman_rev.bib}
+
+\end{document}
