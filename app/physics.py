@@ -160,8 +160,8 @@ def simulate_chain(
 
     # The main cylcle will unfold forward in time
     for i in range(len(milking_timestamps) - 1):
-        t_start = milking_timestamps[i] #timestamp of the beginning of the milking interval
-        t_end = milking_timestamps[i + 1] #timestamp of the beginning of the end interval
+        t_start = milking_timestamps[i]                                    #timestamp of the beginning of the milking interval
+        t_end = milking_timestamps[i + 1]                                  #timestamp of the end of the interval
         local_t = np.linspace(0.0, t_end - t_start, n_points_per_interval) #timestamps for the points within the milking interval
 
         # Exact solution: N(t) = expm(A·t) @ N_seg

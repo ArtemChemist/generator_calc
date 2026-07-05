@@ -1,29 +1,34 @@
 \section{Two solutions to the same equations}
 \label{sec:two_solutions}
 
-Let's consider the most important isotope generator in nuclear medicine: Tc generator, that is still a staple of the clinical practice, used for millions upon millions of SPECT scans every year, all around the world. Mo-99 decays two ways: \~{}87.6\% to Tc-99m (branching ratio $b$) and the remaining \~{}12.4\% directly to (virtually) stable Tc-99, which does not factor into the generator considerations. From here, a conventional chemist's thinking can easily lead us to the following system of equations:
+Let's consider the most important isotope generator in nuclear medicine: Tc generator, that is still a staple of the clinical practice, used for millions upon millions of SPECT scans every year, all around the world. Mo-99 decays two ways: \~{}87.6\% to Tc-99m (branching ratio $b$) and \~{}12.4\% directly to (virtually) stable Tc-99, which does not factor into the generator considerations. From here, a conventional chemist's thinking can easily lead us to the following system of equations:
 
 \begin{equation}
 	\begin{cases}
 		\dfrac{d[^{99}Mo]}{dt} &= -\lambda_{Mo}[^{99}Mo] \\ \\
 		\dfrac{d[^{99m}Tc]}{dt} &= b\lambda_{Mo}[^{99}Mo]-\lambda_{Tc}[^{99m}Tc]
 	\end{cases}
+	\label{eq:original_system}
 \end{equation}
 
-where $\lambda_{Mo} = \ln2/65.94h$, $\lambda_{Tc} = \ln2/6.01h$ and branching ratio $b = 0.876$
+where decay constants are $\lambda_{Mo} = \ln2/65.94h$, $\lambda_{Tc} = \ln2/6.01h$ and branching ratio $b = 0.876$
 
 What this is saying is that the rate of accumulation of \textsuperscript{99}Mo is negatively proportional to its concentration, i.e. the more \textsuperscript{99}Mo we have in solution the slower it accumulates, or what is the same, the faster it decays. This is essentially a definition of the radioactive decay. For the \textsuperscript{99m}Tc the picture is more complex, but is still intuitive: its rate of accumulation is \textit{negatively} proportional to its own concentration $[{^{99m}Tc}]$, but also \textit{positively} proportional to the parent's concentration $[^{99}Mo]$. Also, let's not forget that the $[^{99}Mo]$ is scaled to the branching ratio in the second equation.
+Of course, the question that concerns the chemists the most is "What is in the beaker right now?", and the quest to answering this question can lead us down two surprisingly divergent paths. The more intuitive one was explored by Bateman and bears its name, while the second one relies on matrix exponential. 
+
+\subsection{Bateman equations and their shortcomings}
+In 1910 Bateman proposed an analytical solution to arbitrarily long sequential decay chain 
 
 
-**Matrix form**
-
-Now notice that this same system can be re-written in matrix form. Just a simple change in notation, nothing more:
+\subsection{Matrix exponential: break your brains}
+Now notice that system \eqref{eq:original_system} can be re-written in matrix form. Just a simple change in notation, nothing more:
 
 \begin{equation}
 	\dfrac{d}{dt} 
 	\begin{vmatrix} [^{99}Mo] \\ \\ [^{99m}Tc] \end{vmatrix} = 
 	\begin{pmatrix} -\lambda_{Mo} & 0 \\ & \\b\lambda_{Mo} & -\lambda_{Tc} \end{pmatrix}
 	\begin{vmatrix} [^{99}Mo] \\ \\ [^{99m}Tc] \end{vmatrix}
+	\label{eq:matrix_original_system}
 \end{equation}
 
 
