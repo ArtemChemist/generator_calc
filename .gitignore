@@ -221,3 +221,58 @@ __marimo__/
 
 # Jupyter
 404: Not Found
+
+## LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.nav
+*.snm
+*.vrb
+
+## Latexmk
+*.latexmk_db
+
+## Glossaries
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.ist
+
+## Index
+*.idx
+*.ilg
+*.ind
+
+## Nomenclature
+*.nlo
+*.nls
+
+## BibTeX / Biber
+*.bib.bak
+
+## Tikz externalize
+/figures/tikz/*.pdf
+/figures/tikz/*.md5
+/figures/tikz/*.dpth
+
+## Temp / editor files
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
