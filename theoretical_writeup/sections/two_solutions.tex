@@ -17,10 +17,18 @@ What this is saying is that the rate of accumulation of \textsuperscript{99}Mo i
 Of course, the question that concerns the chemists the most is "What is in the beaker right now?", and the quest to answering this question can lead us down two surprisingly divergent paths. The more intuitive one was explored by Bateman and bears its name, while the second one relies on matrix exponential. 
 
 \subsection{Bateman equations and their shortcomings}
-In 1910 Bateman proposed an analytical solution to arbitrarily long sequential decay chain 
+Bateman proposed an analytical solution to arbitrarily long sequential decay chain. Equation \eqref{eq:bateman_original} is the simplification for the case when parent isotope is not being produced and the daughters only originate from the parent decay.  
+\begin{equation}
+	\dfrac{d}{dt} 
+	\label{eq:bateman_original}
+\end{equation}
 
+The number of terms grows exponentially. Nested sums make the algebraic expression computationally inefficient and difficult to implement in general-purpose software. 
 
-\subsection{Matrix exponential: break your brains}
+Denominator Zeros and Near-Zeros: If two nuclides in the chain have similar or identical half-lives, the denominator approaches zero. The analytical solution creates an indeterminate form, requiring you to manually apply a modified limit or divided-difference solution to avoid dividing by zero.
+
+\subsection{Matrix exponential: modern solution}
+Over the years, a few approaches to solving the Bateman's system of equations have been proposed \cite{maren_implementation_2016} 
 Now notice that system \eqref{eq:original_system} can be re-written in matrix form. Just a simple change in notation, nothing more:
 
 \begin{equation}
@@ -32,7 +40,7 @@ Now notice that system \eqref{eq:original_system} can be re-written in matrix fo
 \end{equation}
 
 
-Only the subdiagonal entry picks up the factor \$b\$. Diagonalizing exactly as before (eigenvalues still \$-\textbackslash{}lambda\_1, -\textbackslash{}lambda\_2\$ since those live on the diagonal regardless of \$b\$):
+Only the subdiagonal entry picks up the factor $b$. Diagonalizing exactly as before (eigenvalues still \$-\textbackslash{}lambda\_1, -\textbackslash{}lambda\_2\$ since those live on the diagonal regardless of \$b\$):
 
 \$\$e\^{}\{At\} = \textbackslash{}begin\{pmatrix\} e\^{}\{-\textbackslash{}lambda\_1 t\} \& 0 \textbackslash{}\textbackslash{}[4pt] \textbackslash{}dfrac\{b\textbackslash{}lambda\_1\}\{\textbackslash{}lambda\_2-\textbackslash{}lambda\_1\}\textbackslash{}left(e\^{}\{-\textbackslash{}lambda\_1 t\}-e\^{}\{-\textbackslash{}lambda\_2 t\}\textbackslash{}right) \& e\^{}\{-\textbackslash{}lambda\_2 t\} \textbackslash{}end\{pmatrix\}\$\$
 

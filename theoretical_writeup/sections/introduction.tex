@@ -2,8 +2,10 @@
 \label{sec:introduction}
 
 Isotope generators are the backbone of medical isotope production, accounting for well over 90\% of all the nuclear medicine procedures. The bulk of this volume comes from the use of Mo-99/Tc-99m generator, but other parent-daughter pairs have been gaining popularity recently, namely Ge-68/Ga-68, Ra-225/Ac-225 and a few others.
-Theoretical calculations of the generator state and predictions of the generator output rely on classic Bateman equations \cite{bateman_solution_1908}. These equations, derived in 1908, allow to predict the present state of the generator, that is the concentration of all isotopes, given the initial state of the generator. While this is technically sufficient, practical considerations of harvesting schedules, generator shelf-life and economical viability add a new layer of complexity. Additionally, computational implementations of Bateman equations are known to suffer from a series of drawbacks \cite{bakin_computational_2018}.
-Over the years, a few approaches to solving the Reutherford's system of equations have been proposed \cite{maren_implementation_2016} 
+
+Theoretical calculations of the generator state and predictions of the generator output rely on basic equations suggested by Rutherford and Soddy \cite{rutherford_lx_1903}. Interestingly enough, already in their foundational paper from 1903 they mention multi nuclide decay chain that is the foundation of the ultra-modern Pb-212 generators.
+
+Few years later, Bateman generalized equations from \cite{rutherford_lx_1903} into a system of differential equations and suggested analytical solution now known as Bateman equations \cite{bateman_solution_1908}. These equations, allow to predict the present state of the generator, that is the concentration of all isotopes, given the initial state of the generator. While this is technically sufficient, practical considerations of harvesting schedules, generator shelf-life and economical viability add a new layer of complexity. Additionally, computational implementations of Bateman equations are known to suffer from a series of drawbacks \cite{bakin_computational_2018}.
 
 This paper describes the logic behind a computer code designed to simulate generator states and output under various operational conditions. 
 
