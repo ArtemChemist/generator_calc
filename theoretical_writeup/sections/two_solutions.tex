@@ -17,15 +17,17 @@ What this is saying is that the rate of accumulation of \textsuperscript{99}Mo i
 Of course, the question that concerns the chemists the most is "What is in the beaker right now?", and the quest to answering this question can lead us down two surprisingly divergent paths. The more intuitive one was explored by Bateman and bears its name, while the second one relies on matrix exponential. 
 
 \subsection{Bateman equations and their shortcomings}
-Bateman proposed an analytical solution to arbitrarily long sequential decay chain. Equation \eqref{eq:bateman_original} is the simplification for the case when parent isotope is not being produced and the daughters only originate from the parent decay.  
+Bateman proposed an analytical solution to arbitrarily long sequential decay chain. Equation \eqref{eq:bateman_original} describes a typical situation in an isotope generator: pure parent isotope at time 0 with no daughters, and no generative processes. In other words, what happens after parent isotope is removed from irradiation facility and chemically purified.
 \begin{equation}
-	\dfrac{d}{dt} 
+	Q_{n}(t) = Q_n(0)\cdot\prod_{j=1}^{n-1}k_{j,j+1}\cdot\sum_{j=1}^{n}\frac{e^{-k_{j}t}}{\prod_{p=1, p\ne j}^{n}(k_{p}-k{j})}
 	\label{eq:bateman_original}
 \end{equation}
 
 The number of terms grows exponentially. Nested sums make the algebraic expression computationally inefficient and difficult to implement in general-purpose software. 
 
 Denominator Zeros and Near-Zeros: If two nuclides in the chain have similar or identical half-lives, the denominator approaches zero. The analytical solution creates an indeterminate form, requiring you to manually apply a modified limit or divided-difference solution to avoid dividing by zero.
+
+If you extend the chain further (e.g. tracking Tc-99 ground state buildup too, or handling isotopes with 3+ branches like your Ac-225 chain has at Bi-213 → Tl-209/Po-213), you get multiple daughters fed from one parent. That's not a single chain anymore — \$A\$ becomes a genuine tree structure, and you'd want one column feeding multiple rows (each weighted by its own \$b\_i\$, with \$\textbackslash{}sum b\_i = 1\$) rather than a simple bidiagonal matrix. The matrix exponential machinery still works fine, it's just no longer tridiagonal/bidiagonal, so `expm` is basically mandatory rather than a convenience at that point.
 
 \subsection{Matrix exponential: modern solution}
 Over the years, a few approaches to solving the Bateman's system of equations have been proposed \cite{maren_implementation_2016} 
@@ -50,6 +52,3 @@ So Bateman becomes:
 
 — literally just the un-branched formula times \$b\$. This makes sense: branching ratio only ever multiplies the *production* term, never the decay-loss term, so it factors out linearly and leaves the transient/secular equilibrium math (the classic 6-hour Mo-99/Tc-99m generator ``milking'' curve) otherwise unchanged.
 
-**Where it stops being this simple**
-
-If you extend the chain further (e.g. tracking Tc-99 ground state buildup too, or handling isotopes with 3+ branches like your Ac-225 chain has at Bi-213 → Tl-209/Po-213), you get multiple daughters fed from one parent. That's not a single chain anymore — \$A\$ becomes a genuine tree structure, and you'd want one column feeding multiple rows (each weighted by its own \$b\_i\$, with \$\textbackslash{}sum b\_i = 1\$) rather than a simple bidiagonal matrix. The matrix exponential machinery still works fine, it's just no longer tridiagonal/bidiagonal, so `expm` is basically mandatory rather than a convenience at that point.
